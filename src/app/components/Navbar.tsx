@@ -1,0 +1,239 @@
+/* eslint-disable @next/next/no-img-element */
+import { useState, useEffect } from "react";
+import { useRouter } from 'next/navigation';
+import Link from 'next/link';
+import {
+  Bed,
+  Car,
+  Utensils,
+  Mountain,
+} from 'lucide-react';
+
+
+// User type definition
+interface User {
+  name?: string;
+  picture?: string;
+  [key: string]: string | number | boolean | undefined | null;
+}
+
+const Navbar = () => {
+  const [isMenuOpen, setIsMenuOpen] = useState(false);
+  const [user, setUser] = useState<User | null>(null);
+  const [isLoading, setIsLoading] = useState(true);
+  const router = useRouter();
+
+  // Check for user authentication status
+  useEffect(() => {
+    const checkUser = async () => {
+      try {
+        const response = await fetch("/api/auth/me");
+        if (response.ok) {
+          const text = await response.text();
+          if (text) {
+            const userData = JSON.parse(text);
+            setUser(userData);
+          } else {
+            setUser(null);
+          }
+        } else {
+          setUser(null);
+        }
+      } catch (error) {
+        console.error("Failed to fetch user:", error);
+        setUser(null);
+      } finally {
+        setIsLoading(false);
+      }
+    };
+
+    checkUser();
+  }, []);
+
+  return (
+    <div className="fixed top-0 left-0 right-0 z-50 bg-white/95 backdrop-blur-xl border-b border-blue-100/50 shadow-lg">
+      <div className="max-w-7xl mx-auto px-6 py-4 flex justify-between items-center">
+        {/* Travel-friendly Logo */}
+        <div className="flex items-center space-x-3 cursor-pointer"
+            onClick={() => router.push("/")}>
+          <div className="w-10 h-10 rounded-full flex items-center justify-center shadow-md bg-white overflow-hidden">
+            <img
+              src="https://iili.io/3Z5wIb1.png"
+              alt="Maghreby Logo"
+              className="w-10 h-10 object-cover"
+            />
+          </div>
+          <div className="text-2xl font-medium text-gray-800 tracking-tight">
+            Maghreby
+            <div className="text-xs text-blue-600 font-normal -mt-1">
+              Discover Morocco
+            </div>
+          </div>
+        </div>
+
+        {/* Friendly Nav Links */}
+        <div className="hidden md:flex items-center space-x-8 text-gray-700">
+        <Link
+            href="/services?type=accommodations"
+            className="relative group text-sm font-medium hover:text-blue-600 transition-all duration-300 py-2"
+        >
+            <span className="flex items-center space-x-1">
+            <Bed className="w-4 h-4" strokeWidth={2} />
+            <span>Places to Stay</span>
+            </span>
+            <span className="absolute -bottom-1 left-0 w-0 h-0.5 bg-gradient-to-r from-blue-500 to-teal-500 group-hover:w-full transition-all duration-300 rounded-full"></span>
+        </Link>
+
+        <Link
+            href="/services?type=cars"
+            className="relative group text-sm font-medium hover:text-blue-600 transition-all duration-300 py-2"
+        >
+            <span className="flex items-center space-x-1">
+            <Car className="w-4 h-4" strokeWidth={2} />
+            <span>Car Rentals</span>
+            </span>
+            <span className="absolute -bottom-1 left-0 w-0 h-0.5 bg-gradient-to-r from-blue-500 to-teal-500 group-hover:w-full transition-all duration-300 rounded-full"></span>
+        </Link>
+
+        <Link
+            href="/services?type=restaurants"
+            className="relative group text-sm font-medium hover:text-blue-600 transition-all duration-300 py-2"
+        >
+            <span className="flex items-center space-x-1">
+            <Utensils className="w-4 h-4" strokeWidth={2} />
+            <span>Local Cuisine</span>
+            </span>
+            <span className="absolute -bottom-1 left-0 w-0 h-0.5 bg-gradient-to-r from-blue-500 to-teal-500 group-hover:w-full transition-all duration-300 rounded-full"></span>
+        </Link>
+
+        <Link
+            href="/services?type=activities"
+            className="relative group text-sm font-medium hover:text-blue-600 transition-all duration-300 py-2"
+        >
+            <span className="flex items-center space-x-1">
+            <Mountain className="w-4 h-4" strokeWidth={2} />
+            <span>Experiences</span>
+            </span>
+            <span className="absolute -bottom-1 left-0 w-0 h-0.5 bg-gradient-to-r from-blue-500 to-teal-500 group-hover:w-full transition-all duration-300 rounded-full"></span>
+        </Link>
+        </div>
+
+        {/* Friendly CTA Buttons */}
+        <div className="hidden md:flex items-center space-x-3">
+          {isLoading ? (
+            <div className="w-24 h-10 animate-pulse bg-gray-200 rounded-lg"></div>
+          ) : user ? (
+            <a
+              href="/profile"
+              className="flex items-center space-x-2 text-gray-600 text-sm font-medium hover:text-blue-600 transition-colors duration-300 px-4 py-2 rounded-lg hover:bg-blue-50"
+            >
+              {user.picture ? (
+                <img
+                  src={user.picture}
+                  alt={user.name || "Profile"}
+                  className="w-6 h-6 rounded-full"
+                  onError={(e) => {
+                    e.currentTarget.onerror = null;
+                    e.currentTarget.src = "/default-avatar.png";
+                  }}
+                />
+              ) : (
+                <div className="w-6 h-6 rounded-full bg-blue-500 flex items-center justify-center text-white text-xs font-bold">
+                  {user.name ? user.name.charAt(0).toUpperCase() : "U"}
+                </div>
+              )}
+              <span>{user.name || "My Account"}</span>
+            </a>
+          ) : (
+            <>
+              <a
+                href="/api/auth/login"
+                className="text-gray-600 text-sm font-medium hover:text-blue-600 transition-colors duration-300 px-4 py-2 rounded-lg hover:bg-blue-50"
+              >
+                Log In
+              </a>
+              <a
+                href="/api/auth/login?screen_hint=signup"
+                className="group relative bg-gradient-to-r from-blue-600 via-blue-500 to-teal-500 text-white px-6 py-2.5 rounded-lg font-medium text-sm transition-all duration-300 hover:shadow-lg hover:shadow-blue-500/25 transform hover:scale-105"
+              >
+                <span className="relative z-10 flex items-center space-x-2">
+                  <span>Start Your Journey</span>
+                  <svg
+                    className="w-4 h-4 group-hover:translate-x-1 transition-transform duration-300"
+                    fill="none"
+                    stroke="currentColor"
+                    strokeWidth={2}
+                    viewBox="0 0 24 24"
+                  >
+                    <path
+                      strokeLinecap="round"
+                      strokeLinejoin="round"
+                      d="M17 8l4 4m0 0l-4 4m4-4H3"
+                    />
+                  </svg>
+                </span>
+              </a>
+            </>
+          )}
+        </div>
+
+        {/* Mobile Menu Button */}
+        <div className="md:hidden">
+          <button
+            onClick={() => setIsMenuOpen(!isMenuOpen)}
+            className="text-gray-600 hover:text-blue-600 transition-colors duration-300 p-2 rounded-lg hover:bg-blue-50"
+          >
+            <svg
+              className="w-6 h-6"
+              fill="none"
+              stroke="currentColor"
+              strokeWidth={2}
+              viewBox="0 0 24 24"
+            >
+              <path
+                strokeLinecap="round"
+                strokeLinejoin="round"
+                d={
+                  isMenuOpen
+                    ? "M6 18L18 6M6 6l12 12"
+                    : "M4 6h16M4 12h16M4 18h16"
+                }
+              />
+            </svg>
+          </button>
+        </div>
+      </div>
+
+      {/* Mobile Menu */}
+      {isMenuOpen && (
+        <div className="md:hidden bg-white/98 backdrop-blur-xl border-t border-blue-100/50 shadow-lg">
+          <div className="px-6 py-6 space-y-4">
+            <a
+              href="#stays"
+              className="flex items-center space-x-3 text-gray-700 hover:text-blue-600 transition-colors duration-300 py-3 px-3 rounded-lg hover:bg-blue-50"
+              onClick={() => setIsMenuOpen(false)}
+            >
+              <svg
+                className="w-5 h-5"
+                fill="none"
+                stroke="currentColor"
+                strokeWidth={2}
+                viewBox="0 0 24 24"
+              >
+                <path
+                  strokeLinecap="round"
+                  strokeLinejoin="round"
+                  d="M3 12l2-2m0 0l7-7 7 7M5 10v10a1 1 0 001 1h3m10-11l2 2m-2-2v10a1 1 0 01-1 1h-3m-6 0a1 1 0 001-1v-4a1 1 0 011-1h2a1 1 0 011 1v4a1 1 0 001 1m-6 0h6"
+                />
+              </svg>
+              <span className="font-medium">Places to Stay</span>
+            </a>
+            {/* ...existing code for other mobile menu links... */}
+          </div>
+        </div>
+      )}
+    </div>
+  );
+};
+
+export default Navbar;

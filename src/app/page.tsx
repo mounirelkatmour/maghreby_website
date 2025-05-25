@@ -12,24 +12,18 @@ import {
   Heart,
   ArrowRight,
   Plane,
-  Car,
+  Car as CarIcon,
   Utensils,
   Camera,
   LucideIcon,
+  Loader2,
 } from "lucide-react";
+import NavbarComponent from "./components/Navbar";
+import { fetchAllServices, Service } from "./utils/fetch_services";
+import { Accommodation, Car, Restaurant, Activity } from "./utils/fetch_services";
+import { useRouter } from "next/navigation";
 
 // Type definitions
-interface Service {
-  title: string;
-  location: string;
-  price: number;
-  originalPrice?: number;
-  rating: number;
-  category: string;
-  description: string;
-  image: string;
-}
-
 interface ServiceCardProps {
   service: Service;
   category: string;
@@ -65,29 +59,56 @@ interface Feature {
 
 // Reusable Service Card Component
 const ServiceCard: React.FC<ServiceCardProps> = ({ service, category }) => {
-  const [isLiked, setIsLiked] = useState(false);
+  const [isLiked, setIsLiked] = useState(service.isFavorite ?? false);
 
-  const getPricingText = (category: string, price: number) => {
-    switch (category) {
-      case "accommodations":
-        return `$${price}/night`;
-      case "cars":
-        return `$${price}/day`;
-      case "restaurants":
-        return `$${price}/person`;
-      case "activities":
-        return `$${price}/person`;
-      default:
-        return `$${price}`;
-    }
-  };
+  // Type guards
 
+  const isAccommodation = (s: Service): s is Accommodation =>
+    "stars" in s && "rooms" in s;
+  const isCar = (s: Service): s is Car =>
+    "brand" in s && "pricePerDay" in s;
+  const isRestaurant = (s: Service): s is Restaurant =>
+    "cuisineType" in s && "minPrice" in s;
+  const isActivity = (s: Service): s is Activity =>
+    "duration" in s && "price" in s;
+
+  // Get display fields
+  const displayName = service.name;
+  const displayImage = service.images && service.images.length > 0 ? service.images[0] : "/placeholder-image.jpg";
+  let displayPrice = "";
+  let extraInfo: React.ReactNode = null;
+
+  if (isAccommodation(service)) {
+    // Show lowest room price if available
+    const minRoom = service.rooms && service.rooms.length > 0
+      ? Math.min(...service.rooms.map(r => r.pricePerNight))
+      : undefined;
+    displayPrice = minRoom ? `${minRoom} MAD/night` : "Price on request";
+    extraInfo = <div className="text-xs text-gray-500 mt-1">⭐ {service.stars} • {service.type}</div>;
+  } else if (isCar(service)) {
+    displayPrice = `${service.pricePerDay} MAD/day`;
+    extraInfo = <div className="text-xs text-gray-500 mt-1">{service.brand} {service.model} • {service.year} • {service.seats} seats</div>;
+  } else if (isRestaurant(service)) {
+    displayPrice = `${service.minPrice} MAD/person`;
+    extraInfo = <div className="text-xs text-gray-500 mt-1">Cuisine: {service.cuisineType}</div>;
+  } else if (isActivity(service)) {
+    displayPrice = `${service.price} MAD/person`;
+    extraInfo = <div className="text-xs text-gray-500 mt-1">Duration: {service.duration}</div>;
+  } else {
+    displayPrice = "Price on request";
+  }
+
+  const router = useRouter();
   return (
-    <div className="group bg-white rounded-2xl overflow-hidden shadow-lg hover:shadow-2xl transition-all duration-500 transform hover:-translate-y-2">
+    <div
+      className="group bg-white rounded-2xl overflow-hidden shadow-lg hover:shadow-2xl transition-all duration-500 transform hover:-translate-y-2"
+      onClick={() => router.push(`/services/${category}/${service.id}`)} // This endpoint redirects to the details page of the service, with the service ID and type as query param.
+      style={{ cursor: "pointer" }}
+    >
       <div className="relative overflow-hidden">
         <img
-          src={service.image}
-          alt={service.title}
+          src={displayImage}
+          alt={displayName}
           className="w-full h-64 object-cover transition-transform duration-700 group-hover:scale-110"
         />
         <div className="absolute top-4 right-4">
@@ -104,25 +125,30 @@ const ServiceCard: React.FC<ServiceCardProps> = ({ service, category }) => {
         </div>
         <div className="absolute top-4 left-4">
           <span className="px-3 py-1 bg-black/70 text-white text-xs font-medium rounded-full backdrop-blur-sm">
-            {service.category}
+            {category}
           </span>
         </div>
-        {service.rating && (
+        {service.averageRating !== undefined && (
           <div className="absolute bottom-4 left-4 flex items-center gap-1 bg-black/70 backdrop-blur-sm rounded-lg px-2 py-1">
             <Star size={14} className="text-yellow-400 fill-current" />
-            <span className="text-sm font-medium">{service.rating}</span>
+            <span className="text-sm font-medium">{service.averageRating}</span>
           </div>
         )}
       </div>
       <div className="p-6">
         <div className="flex items-start justify-between mb-2">
           <h3 className="text-lg font-semibold text-gray-900 group-hover:text-blue-600 transition-colors">
-            {service.title}
+            {displayName}
           </h3>
         </div>
         <div className="flex items-center gap-1 text-gray-500 mb-3">
           <MapPin size={14} />
-          <span className="text-sm">{service.location}</span>
+          <span className="text-sm">
+            {/* Show address/city if available, fallback to 'N/A' */}
+            {service.location && (service.location.address || service.location.city) ?
+              `${service.location.address ? service.location.address + ', ' : ''}${service.location.city ?? ''}`.trim().replace(/,$/, '') :
+              'N/A'}
+          </span>
         </div>
         <p className="text-gray-600 text-sm mb-4 line-clamp-2">
           {service.description}
@@ -130,13 +156,8 @@ const ServiceCard: React.FC<ServiceCardProps> = ({ service, category }) => {
         <div className="flex items-center justify-between">
           <div>
             <span className="text-2xl font-bold text-gray-900">
-              {getPricingText(category, service.price)}
+              {displayPrice}
             </span>
-            {service.originalPrice && (
-              <span className="text-sm text-gray-500 line-through ml-2">
-                ${service.originalPrice}
-              </span>
-            )}
           </div>
           <button className="bg-blue-600 hover:bg-blue-700 text-white px-6 py-2 rounded-xl transition-all duration-300 transform hover:scale-105">
             Book Now
@@ -192,13 +213,13 @@ const Navbar = () => {
       <div className="max-w-7xl mx-auto px-6 py-4 flex justify-between items-center">
         {/* Travel-friendly Logo */}
         <div className="flex items-center space-x-3">
-            <div className="w-10 h-10 rounded-full flex items-center justify-center shadow-md bg-white overflow-hidden">
-              <img
-                src="https://iili.io/3Z5wIb1.png"
-                alt="Maghreby Logo"
-                className="w-10 h-10 object-cover"
-              />
-            </div>
+          <div className="w-10 h-10 rounded-full flex items-center justify-center shadow-md bg-white overflow-hidden">
+            <img
+              src="https://iili.io/3Z5wIb1.png"
+              alt="Maghreby Logo"
+              className="w-10 h-10 object-cover"
+            />
+          </div>
           <div className="text-2xl font-medium text-gray-800 tracking-tight">
             Maghreby
             <div className="text-xs text-blue-600 font-normal -mt-1">
@@ -543,7 +564,7 @@ const AutoCarousel: React.FC<AutoCarouselProps> = ({ images }) => {
 
   return (
     <div className="relative h-screen overflow-hidden">
-      <Navbar />
+      <NavbarComponent />
       {images.map((image, index) => (
         <div
           key={index}
@@ -597,7 +618,7 @@ const SearchInterface = () => {
 
   const categories: Category[] = [
     { id: "accommodations", label: "Stay", icon: Plane },
-    { id: "cars", label: "Drive", icon: Car },
+    { id: "cars", label: "Drive", icon: CarIcon },
     { id: "restaurants", label: "Dine", icon: Utensils },
     { id: "activities", label: "Explore", icon: Camera },
   ];
@@ -692,7 +713,16 @@ const SearchInterface = () => {
   );
 };
 
-export default function Luxora() {
+export default function Maghreby() {
+  const [services, setServices] = useState({
+    accommodations: [] as Service[],
+    cars: [] as Service[],
+    restaurants: [] as Service[],
+    activities: [] as Service[]
+  });
+  const [loading, setLoading] = useState<boolean>(true);
+  const [error, setError] = useState<string | null>(null);
+
   const heroImages = [
     { src: "/listing1.jpg", alt: "Luxury resort overlooking ocean" },
     { src: "/listing2.jpg", alt: "Elegant city penthouse" },
@@ -700,134 +730,59 @@ export default function Luxora() {
     { src: "/hero.jpg", alt: "Private villa with infinity pool" },
   ];
 
-  const accommodations = [
-    {
-      title: "Oceanfront Villa Malibu",
-      location: "Malibu, California",
-      price: 850,
-      originalPrice: 1200,
-      rating: 4.9,
-      category: "Luxury Villa",
-      description:
-        "Stunning oceanfront villa with private beach access and infinity pool",
-      image: "/listing1.jpg",
-    },
-    {
-      title: "Manhattan Penthouse",
-      location: "New York, NY",
-      price: 1200,
-      rating: 4.8,
-      category: "Penthouse",
-      description:
-        "Luxury penthouse in the heart of Manhattan with skyline views",
-      image: "/listing2.jpg",
-    },
-    {
-      title: "Alpine Chalet Sanctuary",
-      location: "Aspen, Colorado",
-      price: 750,
-      rating: 4.9,
-      category: "Chalet",
-      description: "Private mountain chalet with ski-in/ski-out access",
-      image: "/listing3.jpg",
-    },
-  ];
+  useEffect(() => {
+    const loadServices = async () => {
+      try {
+        setLoading(true);
+        setError(null);
+        
+        const servicesData = await fetchAllServices();
+        setServices(servicesData);
+      } catch (err) {
+        console.error('Error fetching services:', err);
+        setError('Failed to load services. Please try again later.');
+      } finally {
+        setLoading(false);
+      }
+    };
 
-  const cars = [
-    {
-      title: "Tesla Model S Plaid",
-      location: "Los Angeles, CA",
-      price: 299,
-      rating: 4.9,
-      category: "Electric Luxury",
-      description: "Premium electric vehicle with autopilot and ludicrous mode",
-      image: "/car1.jpg",
-    },
-    {
-      title: "BMW M8 Competition",
-      location: "Miami, FL",
-      price: 450,
-      rating: 4.8,
-      category: "Sports Car",
-      description: "High-performance luxury coupe with track-tuned suspension",
-      image: "/car2.jpg",
-    },
-    {
-      title: "Range Rover Sport",
-      location: "Denver, CO",
-      price: 199,
-      rating: 4.7,
-      category: "SUV",
-      description:
-        "Luxury SUV perfect for mountain adventures and city driving",
-      image: "/car3.jpg",
-    },
-  ];
+    loadServices();
+  }, []);
 
-  const restaurants = [
-    {
-      title: "Le Bernardin",
-      location: "New York, NY",
-      price: 195,
-      rating: 4.9,
-      category: "Fine Dining",
-      description:
-        "Michelin three-star seafood restaurant with exquisite French cuisine",
-      image: "/api/placeholder/400/300",
-    },
-    {
-      title: "Nobu Malibu",
-      location: "Malibu, CA",
-      price: 120,
-      rating: 4.8,
-      category: "Japanese",
-      description:
-        "Oceanfront Japanese cuisine with innovative sushi and sashimi",
-      image: "/api/placeholder/400/300",
-    },
-    {
-      title: "The French Laundry",
-      location: "Napa Valley, CA",
-      price: 350,
-      rating: 4.9,
-      category: "Michelin Star",
-      description:
-        "World-renowned restaurant offering exceptional French cuisine",
-      image: "/api/placeholder/400/300",
-    },
-  ];
+  // Loading state
+  if (loading) {
+    return (
+      <div className="min-h-screen flex items-center justify-center bg-gray-50">
+        <div className="text-center">
+          <Loader2 className="w-12 h-12 text-blue-600 animate-spin mx-auto mb-4" />
+          <p className="text-gray-600">Loading luxury experiences...</p>
+        </div>
+      </div>
+    );
+  }
 
-  const activities = [
-    {
-      title: "Private Helicopter Tour",
-      location: "Manhattan, NY",
-      price: 299,
-      rating: 4.9,
-      category: "Adventure",
-      description:
-        "Breathtaking aerial views of Manhattan and the Statue of Liberty",
-      image: "/api/placeholder/400/300",
-    },
-    {
-      title: "Wine Tasting Experience",
-      location: "Napa Valley, CA",
-      price: 150,
-      rating: 4.8,
-      category: "Culinary",
-      description: "Private vineyard tour with sommelier-guided tastings",
-      image: "/api/placeholder/400/300",
-    },
-    {
-      title: "Sunset Yacht Charter",
-      location: "Miami, FL",
-      price: 500,
-      rating: 4.9,
-      category: "Water Sports",
-      description:
-        "Luxury yacht experience with champagne and gourmet catering",
-      image: "/api/placeholder/400/300",
-    },
-  ];
+  // Error state
+  if (error) {
+    return (
+      <div className="min-h-screen flex items-center justify-center bg-gray-50">
+        <div className="text-center p-6 bg-white rounded-xl shadow-md max-w-md mx-4">
+          <div className="text-red-500 mb-4">
+            <svg className="w-12 h-12 mx-auto" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 8v4m0 4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
+            </svg>
+          </div>
+          <h2 className="text-xl font-semibold text-gray-800 mb-2">Something went wrong</h2>
+          <p className="text-gray-600 mb-6">{error}</p>
+          <button 
+            onClick={() => window.location.reload()} 
+            className="px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors"
+          >
+            Try Again
+          </button>
+        </div>
+      </div>
+    );
+  }
 
   const ServiceSection: React.FC<ServiceSectionProps> = ({
     title,
@@ -888,7 +843,7 @@ export default function Luxora() {
                 description: "Handpicked luxury accommodations worldwide",
               },
               {
-                icon: Car,
+                icon: CarIcon,
                 title: "Luxury Vehicles",
                 description: "Premium car rentals for every occasion",
               },
@@ -925,27 +880,29 @@ export default function Luxora() {
       </div>
 
       {/* Service Sections */}
-      <ServiceSection
-        title="Premium Accommodations"
-        services={accommodations}
-        category="accommodations"
-        icon={Plane}
-      />
+      <section id="stays">
+        <ServiceSection
+          title="Luxury Accommodations"
+          services={services.accommodations.slice(0, 3)}
+          category="accommodations"
+          icon={Plane}
+        />
+      </section>
       <ServiceSection
         title="Luxury Vehicles"
-        services={cars}
+        services={services.cars.slice(0, 3)}
         category="cars"
-        icon={Car}
+        icon={CarIcon}
       />
       <ServiceSection
         title="Fine Dining"
-        services={restaurants}
+        services={services.restaurants.slice(0, 3)}
         category="restaurants"
         icon={Utensils}
       />
       <ServiceSection
-        title="Exclusive Activities"
-        services={activities}
+        title="Unique Activities"
+        services={services.activities.slice(0, 3)}
         category="activities"
         icon={Camera}
       />
