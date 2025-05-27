@@ -22,6 +22,7 @@ import NavbarComponent from "./components/Navbar";
 import { fetchAllServices, Service } from "./utils/fetch_services";
 import { Accommodation, Car, Restaurant, Activity } from "./utils/fetch_services";
 import { useRouter } from "next/navigation";
+import Loader from "./components/Loader";
 
 // Type definitions
 interface ServiceCardProps {
@@ -752,12 +753,8 @@ export default function Maghreby() {
   // Loading state
   if (loading) {
     return (
-      <div className="min-h-screen flex items-center justify-center bg-gray-50">
-        <div className="text-center">
-          <Loader2 className="w-12 h-12 text-blue-600 animate-spin mx-auto mb-4" />
-          <p className="text-gray-600">Loading luxury experiences...</p>
-        </div>
-      </div>
+      <Loader 
+        text="Loading experiences..."/>
     );
   }
 
@@ -799,13 +796,16 @@ export default function Maghreby() {
             </div>
             <h2 className="text-4xl font-light text-gray-900">{title}</h2>
           </div>
-          <button className="flex items-center gap-2 text-blue-600 hover:text-blue-700 font-medium group">
+            <button
+            className="flex cursor-pointer items-center gap-2 text-blue-600 hover:text-blue-700 font-medium group"
+            onClick={() => window.location.href = `/services?type=${category}`}
+            >
             View All
             <ArrowRight
               size={18}
               className="group-hover:translate-x-1 transition-transform"
             />
-          </button>
+            </button>
         </div>
         <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-8">
           {services.map((service: Service, index: number) => (

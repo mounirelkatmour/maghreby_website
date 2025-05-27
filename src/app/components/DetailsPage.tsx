@@ -28,9 +28,12 @@ import {
   Car,
   Restaurant,
   Activity,
+  addServiceToFavorites,
+  removeServiceFromFavorites,
 } from "../utils/fetch_services";
 import Navbar from "./Navbar";
 import { useRouter } from "next/navigation";
+import Loader from "./Loader";
 
 // Type guards
 function isAccommodation(service: Service): service is Accommodation {
@@ -68,12 +71,13 @@ interface CarouselImage {
   alt: string;
 }
 
-const ImageGallery: React.FC<{ images: CarouselImage[]; serviceName: string }> = ({ 
-  images, 
-  serviceName 
-}) => {
+const ImageGallery: React.FC<{
+  images: CarouselImage[];
+  serviceName: string;
+  isFavorite: boolean;
+  onFavoriteClick: () => void;
+}> = ({ images, serviceName, isFavorite, onFavoriteClick }) => {
   const [currentIndex, setCurrentIndex] = useState(0);
-  const [isFavorite, setIsFavorite] = useState(false);
   const [visibleThumbnails, setVisibleThumbnails] = useState<number[]>([]);
   const maxVisibleThumbnails = 5;
 
@@ -88,13 +92,16 @@ const ImageGallery: React.FC<{ images: CarouselImage[]; serviceName: string }> =
   // Update visible thumbnails based on current index
   useEffect(() => {
     const totalImages = images.length;
-    let start = Math.max(0, currentIndex - Math.floor(maxVisibleThumbnails / 2));
+    let start = Math.max(
+      0,
+      currentIndex - Math.floor(maxVisibleThumbnails / 2)
+    );
     const end = Math.min(totalImages, start + maxVisibleThumbnails);
-    
+
     if (end - start < maxVisibleThumbnails) {
       start = Math.max(0, end - maxVisibleThumbnails);
     }
-    
+
     const visibleIndices = [];
     for (let i = start; i < end; i++) {
       visibleIndices.push(i);
@@ -119,157 +126,175 @@ const ImageGallery: React.FC<{ images: CarouselImage[]; serviceName: string }> =
   return (
     <>
       <div className="grid grid-cols-1 lg:grid-cols-4 gap-4 mb-8">
-      {/* Thumbnail Gallery - Left Side */}
-      <div className="lg:col-span-1 order-2 lg:order-1 relative">
-        {/* Navigation Buttons */}
-        <div className="flex flex-col items-center gap-4 absolute right-0 top-1/2 transform -translate-y-1/2 z-10">
-          <motion.button
-            whileHover={{ scale: 1.1, backgroundColor: 'rgba(255,255,255,0.95)' }}
-            whileTap={{ scale: 0.9 }}
-            onClick={() => setIsFavorite(!isFavorite)}
-            className="bg-white/90 backdrop-blur-sm rounded-full p-2 shadow-lg transition-all duration-300 hover:bg-white z-20"
-            aria-label={isFavorite ? "Remove from favorites" : "Add to favorites"}
-          >
-            <Heart 
-              className={`h-5 w-5 transition-colors duration-300 ${
-                isFavorite ? "text-red-500 fill-red-500" : "text-gray-600 hover:text-red-500"
-              }`} 
-            />
-          </motion.button>
-          
-          {images.length > 1 && (
+        {/* Thumbnail Gallery - Left Side */}
+        <div className="lg:col-span-1 order-2 lg:order-1 relative">
+          {/* Navigation Buttons */}
+          <div className="flex flex-col items-center gap-4 absolute right-0 top-1/2 transform -translate-y-1/2 z-10">
             <motion.button
-              whileHover={{ scale: 1.1, backgroundColor: 'rgba(255,255,255,0.95)' }}
-              whileTap={{ scale: 0.9 }}
-              onClick={nextImage}
-              className="bg-white/90 backdrop-blur-sm hover:bg-white text-gray-800 rounded-full p-2 shadow-lg z-20 transition-all duration-300"
-              aria-label="Next image"
-            >
-              <ChevronRight className="h-5 w-5" />
-            </motion.button>
-          )}
-        </div>
-
-        {/* Thumbnails Container */}
-        <div className="h-full overflow-y-auto pr-12 hide-scrollbar">
-          <div className="grid grid-cols-4 lg:grid-cols-1 gap-2 lg:gap-3">
-            {visibleThumbnails.map((idx) => (
-              <motion.div
-                key={images[idx].src}
-                layout
-                initial={{ opacity: 0, y: 20 }}
-                animate={{ opacity: 1, y: 0 }}
-                exit={{ opacity: 0, y: -20 }}
-                transition={{ duration: 0.3 }}
-                whileHover={{ scale: 1.03 }}
-                whileTap={{ scale: 0.97 }}
-                className={`relative h-20 lg:h-24 rounded-lg overflow-hidden cursor-pointer transition-all duration-300 ${
-                  idx === currentIndex 
-                    ? "ring-2 ring-blue-500 ring-offset-2" 
-                    : "hover:ring-2 hover:ring-blue-300 hover:ring-offset-1"
-                }`}
-                onClick={() => scrollToThumbnail(idx)}
-              >
-                <img
-                  src={images[idx].src}
-                  alt={`${serviceName} thumbnail ${idx + 1}`}
-                  className="w-full h-full object-cover"
-                  loading="lazy"
-                />
-                <div 
-                  className={`absolute inset-0 transition-all duration-300 ${
-                    idx === currentIndex 
-                      ? "bg-blue-500/20" 
-                      : "bg-black/0 hover:bg-black/10"
-                  }`} 
-                />
-              </motion.div>
-            ))}
-          </div>
-        </div>
-      </div>
-
-      {/* Main Image Preview - Right Side */}
-      <div className="lg:col-span-3 order-1 lg:order-2">
-        <div className="relative h-64 md:h-[32rem] lg:h-[36rem] rounded-xl overflow-hidden shadow-2xl group">
-          <AnimatePresence mode="wait">
-            <motion.div
-              key={currentIndex}
-              initial={{ opacity: 0, scale: 0.98 }}
-              animate={{ opacity: 1, scale: 1 }}
-              exit={{ opacity: 0, scale: 1.02 }}
-              transition={{ 
-                duration: 0.5, 
-                ease: [0.4, 0, 0.2, 1],
-                opacity: { duration: 0.4 }
+              whileHover={{
+                scale: 1.1,
+                backgroundColor: "rgba(255,255,255,0.95)",
               }}
-              className="absolute inset-0"
+              whileTap={{ scale: 0.9 }}
+              onClick={onFavoriteClick}
+              className="bg-white/90 backdrop-blur-sm rounded-full p-2 shadow-lg transition-all duration-300 hover:bg-white z-20"
+              aria-label={
+                isFavorite ? "Remove from favorites" : "Add to favorites"
+              }
             >
-              <img
-                src={images[currentIndex].src}
-                alt={images[currentIndex].alt}
-                className="w-full h-full object-cover"
-                loading="eager"
+              <Heart
+                className={`h-5 w-5 transition-colors duration-300 ${
+                  isFavorite
+                    ? "text-red-500 fill-red-500"
+                    : "text-gray-600 hover:text-red-500"
+                }`}
               />
-              <div className="absolute inset-0 bg-gradient-to-t from-black/30 via-transparent to-transparent" />
-            </motion.div>
-          </AnimatePresence>
+            </motion.button>
 
-          {/* Navigation Arrows - Bottom Right */}
-          {images.length > 1 && (
-            <div className="absolute bottom-4 right-4 flex items-center gap-2 z-20">
+            {images.length > 1 && (
               <motion.button
-                whileHover={{ scale: 1.1, backgroundColor: 'rgba(255,255,255,0.95)' }}
+                whileHover={{
+                  scale: 1.1,
+                  backgroundColor: "rgba(255,255,255,0.95)",
+                }}
                 whileTap={{ scale: 0.9 }}
-                className="bg-white/90 backdrop-blur-sm hover:bg-white text-gray-800 rounded-full p-2 shadow-lg transition-all duration-300 opacity-0 group-hover:opacity-100"
-                onClick={prevImage}
-                aria-label="Previous image"
-              >
-                <ChevronLeft className="h-5 w-5" />
-              </motion.button>
-              
-              <div className="bg-white/90 backdrop-blur-sm rounded-full px-3 py-1 text-sm font-medium text-gray-700 shadow-lg">
-                {currentIndex + 1} / {images.length}
-              </div>
-              
-              <motion.button
-                whileHover={{ scale: 1.1, backgroundColor: 'rgba(255,255,255,0.95)' }}
-                whileTap={{ scale: 0.9 }}
-                className="bg-white/90 backdrop-blur-sm hover:bg-white text-gray-800 rounded-full p-2 shadow-lg transition-all duration-300 opacity-0 group-hover:opacity-100"
                 onClick={nextImage}
+                className="bg-white/90 backdrop-blur-sm hover:bg-white text-gray-800 rounded-full p-2 shadow-lg z-20 transition-all duration-300"
                 aria-label="Next image"
               >
                 <ChevronRight className="h-5 w-5" />
               </motion.button>
-            </div>
-          )}
+            )}
+          </div>
 
-          {/* Indicators */}
-          <div className="absolute bottom-4 left-1/2 transform -translate-x-1/2 flex gap-2 z-20">
-            {images.map((_, idx) => (
-              <motion.button
-                key={idx}
-                whileHover={{ scale: 1.2 }}
-                onClick={() => setCurrentIndex(idx)}
-                className={`w-2 h-2 rounded-full transition-all duration-300 ${
-                  idx === currentIndex ? "bg-white scale-125 shadow-lg" : "bg-white/60"
-                }`}
-                aria-label={`Show slide ${idx + 1}`}
-              />
-            ))}
+          {/* Thumbnails Container */}
+          <div className="h-full overflow-y-auto pr-12 hide-scrollbar">
+            <div className="grid grid-cols-4 lg:grid-cols-1 gap-2 lg:gap-3">
+              {visibleThumbnails.map((idx) => (
+                <motion.div
+                  key={images[idx].src}
+                  layout
+                  initial={{ opacity: 0, y: 20 }}
+                  animate={{ opacity: 1, y: 0 }}
+                  exit={{ opacity: 0, y: -20 }}
+                  transition={{ duration: 0.3 }}
+                  whileHover={{ scale: 1.03 }}
+                  whileTap={{ scale: 0.97 }}
+                  className={`relative h-20 lg:h-24 rounded-lg overflow-hidden cursor-pointer transition-all duration-300 ${
+                    idx === currentIndex
+                      ? "ring-2 ring-blue-500 ring-offset-2"
+                      : "hover:ring-2 hover:ring-blue-300 hover:ring-offset-1"
+                  }`}
+                  onClick={() => scrollToThumbnail(idx)}
+                >
+                  <img
+                    src={images[idx].src}
+                    alt={`${serviceName} thumbnail ${idx + 1}`}
+                    className="w-full h-full object-cover"
+                    loading="lazy"
+                  />
+                  <div
+                    className={`absolute inset-0 transition-all duration-300 ${
+                      idx === currentIndex
+                        ? "bg-blue-500/20"
+                        : "bg-black/0 hover:bg-black/10"
+                    }`}
+                  />
+                </motion.div>
+              ))}
+            </div>
+          </div>
+        </div>
+
+        {/* Main Image Preview - Right Side */}
+        <div className="lg:col-span-3 order-1 lg:order-2">
+          <div className="relative h-64 md:h-[32rem] lg:h-[36rem] rounded-xl overflow-hidden shadow-2xl group">
+            <AnimatePresence mode="wait">
+              <motion.div
+                key={currentIndex}
+                initial={{ opacity: 0, scale: 0.98 }}
+                animate={{ opacity: 1, scale: 1 }}
+                exit={{ opacity: 0, scale: 1.02 }}
+                transition={{
+                  duration: 0.5,
+                  ease: [0.4, 0, 0.2, 1],
+                  opacity: { duration: 0.4 },
+                }}
+                className="absolute inset-0"
+              >
+                <img
+                  src={images[currentIndex].src}
+                  alt={images[currentIndex].alt}
+                  className="w-full h-full object-cover"
+                  loading="eager"
+                />
+                <div className="absolute inset-0 bg-gradient-to-t from-black/30 via-transparent to-transparent" />
+              </motion.div>
+            </AnimatePresence>
+
+            {/* Navigation Arrows - Bottom Right */}
+            {images.length > 1 && (
+              <div className="absolute bottom-4 right-4 flex items-center gap-2 z-20">
+                <motion.button
+                  whileHover={{
+                    scale: 1.1,
+                    backgroundColor: "rgba(255,255,255,0.95)",
+                  }}
+                  whileTap={{ scale: 0.9 }}
+                  className="bg-white/90 backdrop-blur-sm hover:bg-white text-gray-800 rounded-full p-2 shadow-lg transition-all duration-300 opacity-0 group-hover:opacity-100"
+                  onClick={prevImage}
+                  aria-label="Previous image"
+                >
+                  <ChevronLeft className="h-5 w-5" />
+                </motion.button>
+
+                <div className="bg-white/90 backdrop-blur-sm rounded-full px-3 py-1 text-sm font-medium text-gray-700 shadow-lg">
+                  {currentIndex + 1} / {images.length}
+                </div>
+
+                <motion.button
+                  whileHover={{
+                    scale: 1.1,
+                    backgroundColor: "rgba(255,255,255,0.95)",
+                  }}
+                  whileTap={{ scale: 0.9 }}
+                  className="bg-white/90 backdrop-blur-sm hover:bg-white text-gray-800 rounded-full p-2 shadow-lg transition-all duration-300 opacity-0 group-hover:opacity-100"
+                  onClick={nextImage}
+                  aria-label="Next image"
+                >
+                  <ChevronRight className="h-5 w-5" />
+                </motion.button>
+              </div>
+            )}
+
+            {/* Indicators */}
+            <div className="absolute bottom-4 left-1/2 transform -translate-x-1/2 flex gap-2 z-20">
+              {images.map((_, idx) => (
+                <motion.button
+                  key={idx}
+                  whileHover={{ scale: 1.2 }}
+                  onClick={() => setCurrentIndex(idx)}
+                  className={`w-2 h-2 rounded-full transition-all duration-300 ${
+                    idx === currentIndex
+                      ? "bg-white scale-125 shadow-lg"
+                      : "bg-white/60"
+                  }`}
+                  aria-label={`Show slide ${idx + 1}`}
+                />
+              ))}
+            </div>
           </div>
         </div>
       </div>
-      </div>
       <style jsx global>{`
-      .hide-scrollbar::-webkit-scrollbar {
-        display: none;
-      }
-      .hide-scrollbar {
-        -ms-overflow-style: none;
-        scrollbar-width: none;
-      }
-    `}</style>
+        .hide-scrollbar::-webkit-scrollbar {
+          display: none;
+        }
+        .hide-scrollbar {
+          -ms-overflow-style: none;
+          scrollbar-width: none;
+        }
+      `}</style>
     </>
   );
 };
@@ -282,7 +307,16 @@ const DetailsPage: React.FC<DetailsPageProps> = ({
   const [recommendations, setRecommendations] = useState<Service[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
+  const [isFavorite, setIsFavorite] = useState<boolean>(false);
   const router = useRouter();
+
+  // Get userId from cookie (client-side only)
+  const getUserIdFromCookie = () => {
+    if (typeof document === "undefined") return null;
+    const match = document.cookie.match(/userId=([^;]+)/);
+    return match ? decodeURIComponent(match[1]) : null;
+  };
+  const userId = getUserIdFromCookie();
 
   useEffect(() => {
     const fetchData = async () => {
@@ -290,8 +324,14 @@ const DetailsPage: React.FC<DetailsPageProps> = ({
       setError(null);
       try {
         // Fetch main service
-        const fetchedService = await fetchServiceById(serviceType, serviceId);
+        const fetchedService = await fetchServiceById(
+          serviceType,
+          serviceId,
+          userId || undefined
+        );
         setService(fetchedService || null);
+        setIsFavorite(!!fetchedService?.isFavorite);
+        console.log("isFavorite: ", fetchedService?.isFavorite);
         // Fetch recommendations (exclude current service)
         const allServices = await fetchAllServices();
         const sameTypeServices = (allServices[serviceType] || []).filter(
@@ -305,26 +345,29 @@ const DetailsPage: React.FC<DetailsPageProps> = ({
       }
     };
     fetchData();
-  }, [serviceId, serviceType]);
+  }, [serviceId, serviceType, userId]);
+
+  const handleFavoriteClick = async () => {
+    if (!service || !userId) return;
+    try {
+      if (isFavorite) {
+        await removeServiceFromFavorites(serviceType, service.id, userId);
+        setIsFavorite(false);
+      } else {
+        await addServiceToFavorites(serviceType, service.id, userId);
+        setIsFavorite(true);
+      }
+    } catch (err) {
+      // Optionally show an error message
+      console.error("Failed to update favorite:", err);
+    }
+  };
 
   if (loading)
     return (
       <div>
         <Navbar />
-        <div className="min-h-screen bg-gradient-to-br from-blue-50 to-indigo-100 py-12 px-4 mt-16 sm:px-6 lg:px-8">
-          <div className="max-w-7xl mx-auto">
-            <motion.div 
-              initial={{ opacity: 0, y: 20 }}
-              animate={{ opacity: 1, y: 0 }}
-              className="text-center"
-            >
-              <div className="inline-block animate-spin rounded-full h-12 w-12 border-4 border-blue-600 border-t-transparent"></div>
-              <p className="mt-6 text-xl font-semibold text-gray-700">
-                Loading service details...
-              </p>
-            </motion.div>
-          </div>
-        </div>
+        <Loader text="Loading..." />
       </div>
     );
 
@@ -334,7 +377,7 @@ const DetailsPage: React.FC<DetailsPageProps> = ({
         <Navbar />
         <div className="min-h-screen bg-gradient-to-br from-blue-50 to-indigo-100 py-12 px-4 mt-16 sm:px-6 lg:px-8">
           <div className="max-w-7xl mx-auto">
-            <motion.div 
+            <motion.div
               initial={{ opacity: 0, scale: 0.9 }}
               animate={{ opacity: 1, scale: 1 }}
               className="text-center"
@@ -367,7 +410,7 @@ const DetailsPage: React.FC<DetailsPageProps> = ({
       <div className="min-h-screen bg-gradient-to-br from-blue-50 via-white to-indigo-50 py-12 px-4 mt-16 sm:px-6 lg:px-8">
         <div className="max-w-7xl mx-auto">
           {/* Image Gallery */}
-          <motion.div 
+          <motion.div
             initial={{ opacity: 0, y: 30 }}
             animate={{ opacity: 1, y: 0 }}
             transition={{ duration: 0.6 }}
@@ -380,12 +423,14 @@ const DetailsPage: React.FC<DetailsPageProps> = ({
                   alt: service.name + " " + (idx + 1),
                 }))}
                 serviceName={service.name}
+                isFavorite={isFavorite}
+                onFavoriteClick={handleFavoriteClick}
               />
             )}
           </motion.div>
 
           {/* Service Details */}
-          <motion.div 
+          <motion.div
             initial={{ opacity: 0, y: 30 }}
             animate={{ opacity: 1, y: 0 }}
             transition={{ duration: 0.6, delay: 0.2 }}
@@ -393,7 +438,7 @@ const DetailsPage: React.FC<DetailsPageProps> = ({
           >
             <div className="flex flex-col lg:flex-row lg:items-start lg:justify-between mb-8">
               <div className="flex-1">
-                <motion.h1 
+                <motion.h1
                   initial={{ opacity: 0, x: -20 }}
                   animate={{ opacity: 1, x: 0 }}
                   transition={{ delay: 0.3 }}
@@ -401,7 +446,7 @@ const DetailsPage: React.FC<DetailsPageProps> = ({
                 >
                   {service.name}
                 </motion.h1>
-                <motion.div 
+                <motion.div
                   initial={{ opacity: 0, x: -20 }}
                   animate={{ opacity: 1, x: 0 }}
                   transition={{ delay: 0.4 }}
@@ -422,7 +467,7 @@ const DetailsPage: React.FC<DetailsPageProps> = ({
                     </span>
                   </div>
                 </motion.div>
-                <motion.div 
+                <motion.div
                   initial={{ opacity: 0, x: -20 }}
                   animate={{ opacity: 1, x: 0 }}
                   transition={{ delay: 0.5 }}
@@ -434,16 +479,14 @@ const DetailsPage: React.FC<DetailsPageProps> = ({
                   </span>
                 </motion.div>
               </div>
-              <motion.div 
+              <motion.div
                 initial={{ opacity: 0, x: 20 }}
                 animate={{ opacity: 1, x: 0 }}
                 transition={{ delay: 0.6 }}
                 className="lg:ml-8 mt-4 lg:mt-0 flex flex-col items-end"
-              > 
+              >
                 <div className="text-sm font-light text-slate-400 uppercase tracking-widest">
-                  {isRestaurant(service)
-                    ? "From"
-                    : ""}
+                  {isRestaurant(service) ? "From" : ""}
                 </div>
                 <div className="text-5xl lg:text-6xl font-light mb-1 text-slate-800">
                   {isAccommodation(service)
@@ -457,7 +500,9 @@ const DetailsPage: React.FC<DetailsPageProps> = ({
                     : isActivity(service)
                     ? service.price
                     : "—"}
-                  <span className="text-lg font-normal text-slate-500 ml-2">MAD</span>
+                  <span className="text-lg font-normal text-slate-500 ml-2">
+                    MAD
+                  </span>
                 </div>
                 <div className="text-sm font-light text-slate-400 uppercase tracking-widest">
                   {isAccommodation(service)
@@ -473,7 +518,7 @@ const DetailsPage: React.FC<DetailsPageProps> = ({
               </motion.div>
             </div>
 
-            <motion.p 
+            <motion.p
               initial={{ opacity: 0 }}
               animate={{ opacity: 1 }}
               transition={{ delay: 0.7 }}
@@ -484,7 +529,7 @@ const DetailsPage: React.FC<DetailsPageProps> = ({
 
             {/* Service-specific details with enhanced styling */}
             {isAccommodation(service) && (
-              <motion.div 
+              <motion.div
                 initial={{ opacity: 0, y: 20 }}
                 animate={{ opacity: 1, y: 0 }}
                 transition={{ delay: 0.8 }}
@@ -498,11 +543,15 @@ const DetailsPage: React.FC<DetailsPageProps> = ({
                   <div className="space-y-3">
                     <div className="flex justify-between items-center py-2 border-b border-blue-200">
                       <span className="text-gray-700 font-medium">Stars:</span>
-                      <span className="font-bold text-gray-900">{service.stars}</span>
+                      <span className="font-bold text-gray-900">
+                        {service.stars}
+                      </span>
                     </div>
                     <div className="flex justify-between items-center py-2">
                       <span className="text-gray-700 font-medium">Type:</span>
-                      <span className="font-bold text-gray-900">{service.type}</span>
+                      <span className="font-bold text-gray-900">
+                        {service.type}
+                      </span>
                     </div>
                   </div>
                 </div>
@@ -528,7 +577,7 @@ const DetailsPage: React.FC<DetailsPageProps> = ({
             )}
 
             {isCar(service) && (
-              <motion.div 
+              <motion.div
                 initial={{ opacity: 0, y: 20 }}
                 animate={{ opacity: 1, y: 0 }}
                 transition={{ delay: 0.8 }}
@@ -547,9 +596,16 @@ const DetailsPage: React.FC<DetailsPageProps> = ({
                       { label: "Fuel Type", value: service.fuelType },
                       { label: "Transmission", value: service.transmission },
                     ].map((item, index) => (
-                      <div key={index} className="flex justify-between items-center py-2 border-b border-orange-200 last:border-b-0">
-                        <span className="text-gray-700 font-medium">{item.label}:</span>
-                        <span className="font-bold text-gray-900">{item.value}</span>
+                      <div
+                        key={index}
+                        className="flex justify-between items-center py-2 border-b border-orange-200 last:border-b-0"
+                      >
+                        <span className="text-gray-700 font-medium">
+                          {item.label}:
+                        </span>
+                        <span className="font-bold text-gray-900">
+                          {item.value}
+                        </span>
                       </div>
                     ))}
                     <div className="flex justify-between items-center py-2">
@@ -565,7 +621,7 @@ const DetailsPage: React.FC<DetailsPageProps> = ({
             )}
 
             {isRestaurant(service) && (
-              <motion.div 
+              <motion.div
                 initial={{ opacity: 0, y: 20 }}
                 animate={{ opacity: 1, y: 0 }}
                 transition={{ delay: 0.8 }}
@@ -578,8 +634,12 @@ const DetailsPage: React.FC<DetailsPageProps> = ({
                   </h3>
                   <div className="space-y-3">
                     <div className="flex justify-between items-center py-2 border-b border-purple-200">
-                      <span className="text-gray-700 font-medium">Cuisine:</span>
-                      <span className="font-bold text-gray-900">{service.cuisineType}</span>
+                      <span className="text-gray-700 font-medium">
+                        Cuisine:
+                      </span>
+                      <span className="font-bold text-gray-900">
+                        {service.cuisineType}
+                      </span>
                     </div>
                     <div className="flex justify-between items-center py-2 border-b border-purple-200">
                       <span className="text-gray-700 font-medium">Hours:</span>
@@ -602,14 +662,16 @@ const DetailsPage: React.FC<DetailsPageProps> = ({
                   </h3>
                   <div className="space-y-3 max-h-48 overflow-y-auto">
                     {service.menu?.slice(0, 4).map((item, idx) => (
-                      <motion.div 
-                        key={idx} 
+                      <motion.div
+                        key={idx}
                         initial={{ opacity: 0, x: -10 }}
                         animate={{ opacity: 1, x: 0 }}
                         transition={{ delay: 0.9 + idx * 0.1 }}
                         className="bg-white rounded-lg p-3 shadow-sm border border-pink-200"
                       >
-                        <div className="font-semibold text-gray-900">{item.name}</div>
+                        <div className="font-semibold text-gray-900">
+                          {item.name}
+                        </div>
                         <div className="text-sm text-gray-600 mb-1">
                           {item.description}
                         </div>
@@ -624,7 +686,7 @@ const DetailsPage: React.FC<DetailsPageProps> = ({
             )}
 
             {isActivity(service) && (
-              <motion.div 
+              <motion.div
                 initial={{ opacity: 0, y: 20 }}
                 animate={{ opacity: 1, y: 0 }}
                 transition={{ delay: 0.8 }}
@@ -637,7 +699,9 @@ const DetailsPage: React.FC<DetailsPageProps> = ({
                   </h3>
                   <div className="space-y-3">
                     <div className="flex justify-between items-center py-2">
-                      <span className="text-gray-700 font-medium">Duration:</span>
+                      <span className="text-gray-700 font-medium">
+                        Duration:
+                      </span>
                       <span className="font-bold text-gray-900 flex items-center">
                         <Clock className="h-4 w-4 mr-1" />
                         {service.duration}
@@ -649,13 +713,13 @@ const DetailsPage: React.FC<DetailsPageProps> = ({
             )}
 
             {/* Action Button */}
-            <motion.div 
+            <motion.div
               initial={{ opacity: 0, y: 30 }}
               animate={{ opacity: 1, y: 0 }}
               transition={{ delay: 1 }}
               className="flex justify-center"
             >
-              <motion.button 
+              <motion.button
                 whileHover={{ scale: 1.05, y: -2 }}
                 whileTap={{ scale: 0.95 }}
                 className="bg-gradient-to-r from-blue-600 to-blue-700 hover:from-blue-700 hover:to-blue-800 text-white font-bold py-4 px-12 rounded-2xl shadow-xl hover:shadow-2xl transition-all duration-300 flex items-center justify-center space-x-3"
@@ -668,7 +732,7 @@ const DetailsPage: React.FC<DetailsPageProps> = ({
 
           {/* Recommendations */}
           {recommendations.length > 0 && (
-            <motion.div 
+            <motion.div
               initial={{ opacity: 0, y: 40 }}
               animate={{ opacity: 1, y: 0 }}
               transition={{ duration: 0.6, delay: 0.4 }}

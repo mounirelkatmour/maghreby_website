@@ -29,6 +29,9 @@ function SyncUser() {
 
         const result = await res.json();
         console.log("✅ User synced:", result);
+        //set userId in cookies or session
+        document.cookie = `userId=${result.id}; path=/; max-age=604800`; // 1 week
+        console.log("✅ User ID set in cookies:", result.id);
       } catch (error) {
         console.error("❌ Failed to sync user:", error);
       }

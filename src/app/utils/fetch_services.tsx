@@ -1,3 +1,5 @@
+/* eslint-disable import/no-anonymous-default-export */
+/* eslint-disable @typescript-eslint/no-explicit-any */
 /* eslint-disable @typescript-eslint/no-unused-vars */
 // API configuration
 const API_BASE_URL = 'http://localhost:8080';
@@ -51,7 +53,7 @@ export interface Accommodation extends BaseService {
 }
 
 export interface BaseService {
-  id: number;
+  id: string;  // Changed to string to align with backend IDs
   name: string;
   description: string;
   images: string[];
@@ -110,6 +112,13 @@ export interface ServiceData {
   activities: Service[];
 }
 
+// Getting userId from cookies
+const userId = (() => {
+  if (typeof document === 'undefined') return null; // No cookies in server-side rendering
+  const match = document.cookie.match(/userId=([^;]+)/);
+  return match ? decodeURIComponent(match[1]) : null;
+})();
+
 // Generic function to fetch data from the backend
 async function fetchData<T>(endpoint: string): Promise<T> {
   const url = `${BASE_URL}${endpoint}`;
@@ -132,27 +141,27 @@ async function fetchData<T>(endpoint: string): Promise<T> {
     
     if (!response.ok) {
       let errorData;
-    try {
-      errorData = await response.text();
       try {
-        errorData = JSON.parse(errorData);
+        errorData = await response.text();
+        try {
+          errorData = JSON.parse(errorData);
+        } catch (e) {
+          // If not JSON, keep as text
+        }
       } catch (e) {
-        // If not JSON, keep as text
+        errorData = 'Failed to parse error response';
       }
-    } catch (e) {
-      errorData = 'Failed to parse error response';
-    }
-    
-    const errorMessage = `HTTP error! status: ${response.status} - ${response.statusText}`;
-    console.error('API Error Details:', {
-      url,
-      status: response.status,
-      statusText: response.statusText,
-      errorData,
-      headers: Object.fromEntries(response.headers.entries())
-    });
-    
-    throw new Error(errorMessage);
+      
+      const errorMessage = `HTTP error! status: ${response.status} - ${response.statusText}`;
+      console.error('API Error Details:', {
+        url,
+        status: response.status,
+        statusText: response.statusText,
+        errorData,
+        headers: Object.fromEntries(response.headers.entries())
+      });
+      
+      throw new Error(errorMessage);
     }
     
     return await response.json();
@@ -201,7 +210,6 @@ export const fetchAllServices = async (userId?: string): Promise<ServiceData> =>
   console.log('Starting to fetch all services...');
   
   try {
-    // Add userId as query parameter if provided
     const userIdParam = userId ? `?userId=${encodeURIComponent(userId)}` : '';
     
     const [accommodations, cars, restaurants, activities] = await Promise.all([
@@ -246,7 +254,6 @@ export const fetchAllServices = async (userId?: string): Promise<ServiceData> =>
     };
   } catch (error) {
     console.error('Critical error in fetchAllServices:', error);
-    // Return empty arrays instead of throwing to prevent UI from breaking
     return {
       accommodations: [],
       cars: [],
@@ -256,18 +263,84 @@ export const fetchAllServices = async (userId?: string): Promise<ServiceData> =>
   }
 };
 
-// Function to fetch a single service by ID and type
-export const fetchServiceById = async (type: keyof ServiceData, id: string): Promise<Service | undefined> => {
+// Fetch a single service by ID and type
+export const fetchServiceById = async (
+  type: keyof ServiceData,
+  id: string,
+  userId?: string
+): Promise<Service | undefined> => {
   try {
-    const services = await fetchData<Service[]>(`/services/${type}`);
-    return services.find(service => String(service.id) === String(id));
+    const userIdParam = userId ? `?userId=${encodeURIComponent(userId)}` : '';
+    const service = await fetchData<Service>(`/services/${type}/${id}${userIdParam}`);
+    return transformService(service, type);
   } catch (error) {
     console.error(`Error fetching ${type} with id ${id}:`, error);
     throw error;
   }
 };
 
+// Add a service to favorites
+export const addServiceToFavorites = async (
+  type: keyof ServiceData,
+  serviceId: string,
+  userId: string
+): Promise<void> => {
+  try {
+    const response = await fetch(
+      `${BASE_URL}/services/${type}/${serviceId}/favorites?userId=${userId}`,
+      {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({ serviceId, userId }),
+      }
+    );
+
+    if (!response.ok) {
+      const errorData = await response.json();
+      throw new Error(`Failed to add service to favorites: ${errorData.message}`);
+    }
+
+    console.log(`Service ${serviceId} added to favorites for user ${userId}`);
+  } catch (error) {
+    console.error('Error adding service to favorites:', error);
+    throw error;
+  }
+};
+
+// Remove a service from favorites
+export const removeServiceFromFavorites = async (
+  type: keyof ServiceData,
+  serviceId: string,
+  userId: string
+): Promise<void> => {
+  try {
+    const response = await fetch(
+      `${BASE_URL}/services/${type}/${serviceId}/favorites?userId=${userId}`,
+      {
+        method: 'DELETE',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+      }
+    );
+
+    if (!response.ok) {
+      const errorData = await response.json();
+      throw new Error(`Failed to remove service from favorites: ${errorData.message}`);
+    }
+
+    console.log(`Service ${serviceId} removed from favorites for user ${userId}`);
+  } catch (error) {
+    console.error('Error removing service from favorites:', error);
+    throw error;
+  }
+};
+
 export default {
   fetchAllServices,
-  fetchServiceById
+  fetchServiceById,
+  addServiceToFavorites,
+  removeServiceFromFavorites
 };

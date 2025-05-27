@@ -26,6 +26,7 @@ import {
 // Import react-select and country-list
 import Select from 'react-select';
 import countries from 'country-list'; // Import the default export
+import Loader from "../components/Loader";
 
 interface ExtendedUser {
   sub?: string;
@@ -101,24 +102,44 @@ export default function ProfilePage() {
       return;
     }
     if (user) {
+        const usedId = document.cookie
+          .split('; ')
+          .find(row => row.startsWith('userId='))
+          ?.split('=')[1] || null;
+      setUserId(userId);
       const fetchUserData = async () => {
         let backendUser: any = null;
-        const auth0Sub = user.sub;
-
-        if (auth0Sub) {
+        if (usedId) {
           try {
-            const res = await fetch(`http://localhost:8080/api/users/auth0/${auth0Sub}`);
+            const res = await fetch(`http://localhost:8080/api/users/${usedId}`);
             if (res.ok) {
               backendUser = await res.json();
             } else if (res.status === 404) {
-              console.log("User not found by auth0_id, might be a new user.");
+              console.log("User not found by ID, might be a new user.");
             } else {
-              console.error("Failed to fetch user by auth0_id:", res.status);
+              console.error("Failed to fetch user by ID:", res.status);
             }
           } catch (e) {
-            console.error("Error fetching user by auth0_id:", e);
+            console.error("Error fetching user by ID:", e);
           }
         }
+
+        // getting user by auth0_id
+        // const auth0Sub = user.sub;
+        // if (auth0Sub) {
+        //   try {
+        //     const res = await fetch(`http://localhost:8080/api/users/auth0/${auth0Sub}`);
+        //     if (res.ok) {
+        //       backendUser = await res.json();
+        //     } else if (res.status === 404) {
+        //       console.log("User not found by auth0_id, might be a new user.");
+        //     } else {
+        //       console.error("Failed to fetch user by auth0_id:", res.status);
+        //     }
+        //   } catch (e) {
+        //     console.error("Error fetching user by auth0_id:", e);
+        //   }
+        // }
         
         if (backendUser) {
           setUserId(backendUser.id);
@@ -156,7 +177,7 @@ export default function ProfilePage() {
       };
       fetchUserData();
     }
-  }, [user, isLoading, router]);
+  }, [user, isLoading, router, userId]);
 
   const handleLogout = () => {
     setLogoutLoading(true);
@@ -217,12 +238,8 @@ export default function ProfilePage() {
 
   if (isLoading) {
     return (
-      <div className="min-h-screen bg-slate-50 flex items-center justify-center">
-        <div className="text-center">
-          <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-blue-600 mx-auto"></div>
-          <p className="mt-4 text-slate-600 text-lg">Loading your profile...</p>
-        </div>
-      </div>
+      <Loader 
+        text="Loading your profile..."/>
     );
   }
 
@@ -249,8 +266,9 @@ export default function ProfilePage() {
       <Navbar />
       <div className="min-h-screen bg-slate-50 pt-26 pb-12 px-4 sm:px-6 lg:px-8">
         <header className="max-w-6xl mx-auto mb-10">
-          <h1 className="text-3xl sm:text-4xl font-bold text-slate-800">
-            Account Settings
+          <h1 className="text-3xl sm:text-4xl font-bold text-slate-800 flex items-center gap-2">
+            <span aria-hidden="true"><User size={36} /></span>
+            <span>Account Settings</span>
           </h1>
           <p className="mt-1 text-sm text-slate-600">Manage your profile, and personal information.</p>
         </header>
