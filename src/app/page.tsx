@@ -19,15 +19,40 @@ import {
   Loader2,
 } from "lucide-react";
 import NavbarComponent from "./components/Navbar";
-import { fetchAllServices, Service } from "./utils/fetch_services";
-import { Accommodation, Car, Restaurant, Activity } from "./utils/fetch_services";
+import {
+  fetchAllServices,
+  Service,
+  addServiceToFavorites,
+  removeServiceFromFavorites,
+  ServiceData,
+} from "./utils/fetch_services";
+import {
+  Accommodation,
+  Car,
+  Restaurant,
+  Activity,
+} from "./utils/fetch_services";
 import { useRouter } from "next/navigation";
 import Loader from "./components/Loader";
+
+// Helper to get userId from cookie
+const getUserIdFromCookie = () => {
+  if (typeof document === "undefined") return null;
+  const match = document.cookie.match(/userId=([^;]+)/);
+  return match ? decodeURIComponent(match[1]) : null;
+};
 
 // Type definitions
 interface ServiceCardProps {
   service: Service;
   category: string;
+  isFavorite: boolean;
+  onFavoriteToggle: (
+    service: Service,
+    category: string,
+    newValue: boolean
+  ) => void;
+  userId: string | null;
 }
 
 interface CarouselImage {
@@ -59,15 +84,33 @@ interface Feature {
 }
 
 // Reusable Service Card Component
-const ServiceCard: React.FC<ServiceCardProps> = ({ service, category }) => {
-  const [isLiked, setIsLiked] = useState(service.isFavorite ?? false);
+interface ServiceCardProps {
+  service: Service;
+  category: string;
+  isFavorite: boolean;
+  onFavoriteToggle: (
+    service: Service,
+    category: string,
+    newValue: boolean
+  ) => void;
+  userId: string | null;
+}
+
+const ServiceCard: React.FC<ServiceCardProps> = ({
+  service,
+  category,
+  isFavorite,
+  onFavoriteToggle,
+  userId,
+}) => {
+  // Always use isFavorite prop for heart color, and only update local state for loading feedback
+  const [loading, setLoading] = useState(false);
+  const router = useRouter();
 
   // Type guards
-
   const isAccommodation = (s: Service): s is Accommodation =>
     "stars" in s && "rooms" in s;
-  const isCar = (s: Service): s is Car =>
-    "brand" in s && "pricePerDay" in s;
+  const isCar = (s: Service): s is Car => "brand" in s && "pricePerDay" in s;
   const isRestaurant = (s: Service): s is Restaurant =>
     "cuisineType" in s && "minPrice" in s;
   const isActivity = (s: Service): s is Activity =>
@@ -75,95 +118,155 @@ const ServiceCard: React.FC<ServiceCardProps> = ({ service, category }) => {
 
   // Get display fields
   const displayName = service.name;
-  const displayImage = service.images && service.images.length > 0 ? service.images[0] : "/placeholder-image.jpg";
+  const displayImage =
+    service.images && service.images.length > 0
+      ? service.images[0]
+      : "/placeholder-image.jpg";
   let displayPrice = "";
   let extraInfo: React.ReactNode = null;
 
   if (isAccommodation(service)) {
     // Show lowest room price if available
-    const minRoom = service.rooms && service.rooms.length > 0
-      ? Math.min(...service.rooms.map(r => r.pricePerNight))
-      : undefined;
+    const minRoom =
+      service.rooms && service.rooms.length > 0
+        ? Math.min(...service.rooms.map((r) => r.pricePerNight))
+        : undefined;
     displayPrice = minRoom ? `${minRoom} MAD/night` : "Price on request";
-    extraInfo = <div className="text-xs text-gray-500 mt-1">⭐ {service.stars} • {service.type}</div>;
+    extraInfo = (
+      <div className="text-xs text-gray-500 mt-1">
+        ⭐ {service.stars} • {service.type}
+      </div>
+    );
   } else if (isCar(service)) {
     displayPrice = `${service.pricePerDay} MAD/day`;
-    extraInfo = <div className="text-xs text-gray-500 mt-1">{service.brand} {service.model} • {service.year} • {service.seats} seats</div>;
+    extraInfo = (
+      <div className="text-xs text-gray-500 mt-1">
+        {service.brand} {service.model} • {service.year} • {service.seats} seats
+      </div>
+    );
   } else if (isRestaurant(service)) {
     displayPrice = `${service.minPrice} MAD/person`;
-    extraInfo = <div className="text-xs text-gray-500 mt-1">Cuisine: {service.cuisineType}</div>;
+    extraInfo = (
+      <div className="text-xs text-gray-500 mt-1">
+        Cuisine: {service.cuisineType}
+      </div>
+    );
   } else if (isActivity(service)) {
     displayPrice = `${service.price} MAD/person`;
-    extraInfo = <div className="text-xs text-gray-500 mt-1">Duration: {service.duration}</div>;
+    extraInfo = (
+      <div className="text-xs text-gray-500 mt-1">
+        Duration: {service.duration}
+      </div>
+    );
   } else {
     displayPrice = "Price on request";
   }
 
-  const router = useRouter();
+  const handleFavoriteClick = async (e: React.MouseEvent) => {
+    e.stopPropagation();
+    if (!userId) return;
+    setLoading(true);
+    try {
+      if (isFavorite) {
+        await removeServiceFromFavorites(
+          category as keyof ServiceData,
+          service.id,
+          userId
+        );
+        onFavoriteToggle(service, category, false);
+      } else {
+        try {
+          await addServiceToFavorites(
+            category as keyof ServiceData,
+            service.id,
+            userId
+          );
+          onFavoriteToggle(service, category, true);
+        } catch (err) {
+          if (
+            err instanceof Error &&
+            err.message &&
+            err.message.includes("already in your favorites")
+          ) {
+            onFavoriteToggle(service, category, true);
+          } else {
+            // Optionally show error
+          }
+        }
+      }
+    } finally {
+      setLoading(false);
+    }
+  };
+
   return (
     <div
-      className="group bg-white rounded-2xl overflow-hidden shadow-lg hover:shadow-2xl transition-all duration-500 transform hover:-translate-y-2"
-      onClick={() => router.push(`/services/${category}/${service.id}`)} // This endpoint redirects to the details page of the service, with the service ID and type as query param.
+      className="bg-white overflow-hidden shadow-lg rounded-lg hover:shadow-xl transition-all duration-300 h-full flex flex-col border border-gray-200 hover:border-blue-300 relative group"
+      onClick={() => router.push(`/services/${category}/${service.id}`)}
       style={{ cursor: "pointer" }}
     >
-      <div className="relative overflow-hidden">
-        <img
-          src={displayImage}
-          alt={displayName}
-          className="w-full h-64 object-cover transition-transform duration-700 group-hover:scale-110"
+      <div className="h-48 overflow-hidden relative">
+      <img
+        src={displayImage}
+        alt={displayName}
+        className="w-full h-full object-cover transform group-hover:scale-105 transition-transform duration-300"
+      />
+      <button
+        onClick={handleFavoriteClick}
+        disabled={loading}
+        className={"absolute top-3 right-3 z-20 bg-white/90 backdrop-blur-sm rounded-full p-2 shadow-lg hover:bg-white transition-all duration-300"}
+        aria-label={isFavorite ? "Remove from favorites" : "Add to favorites"}
+      >
+        <Heart
+        size={20}
+        className={`h-5 w-5 transition-colors duration-300 ${
+          isFavorite
+          ? "text-red-500 fill-red-500"
+          : "text-gray-600 hover:text-red-500"
+        }`}
         />
-        <div className="absolute top-4 right-4">
-          <button
-            onClick={() => setIsLiked(!isLiked)}
-            className={`p-2 rounded-full backdrop-blur-md transition-all duration-300 ${
-              isLiked
-                ? "bg-red-500 text-white"
-                : "bg-white/80 text-gray-700 hover:bg-white"
-            }`}
-          >
-            <Heart size={18} fill={isLiked ? "currentColor" : "none"} />
-          </button>
+      </button>
+      {service.averageRating !== undefined && (
+        <div className="absolute bottom-3 left-3 flex items-center bg-yellow-50 px-2 py-1 rounded-full">
+        <Star size={14} className="text-yellow-400 fill-current" />
+        <span className="ml-1 text-sm font-medium text-gray-700">
+          {service.averageRating?.toFixed(1)}
+        </span>
         </div>
-        <div className="absolute top-4 left-4">
-          <span className="px-3 py-1 bg-black/70 text-white text-xs font-medium rounded-full backdrop-blur-sm">
-            {category}
-          </span>
-        </div>
-        {service.averageRating !== undefined && (
-          <div className="absolute bottom-4 left-4 flex items-center gap-1 bg-black/70 backdrop-blur-sm rounded-lg px-2 py-1">
-            <Star size={14} className="text-yellow-400 fill-current" />
-            <span className="text-sm font-medium">{service.averageRating}</span>
-          </div>
-        )}
+      )}
       </div>
-      <div className="p-6">
-        <div className="flex items-start justify-between mb-2">
-          <h3 className="text-lg font-semibold text-gray-900 group-hover:text-blue-600 transition-colors">
-            {displayName}
-          </h3>
+      <div className="p-4 flex-1 flex flex-col">
+      <div className="flex justify-between items-start">
+        <h3 className="text-lg font-semibold text-gray-900 group-hover:text-blue-600 transition-colors">
+        {displayName}
+        </h3>
+      </div>
+      <div className="flex items-center gap-1 text-gray-500 mt-1 mb-2">
+        <MapPin size={14} />
+        <span className="text-sm">
+        {service.location &&
+        (service.location.address || service.location.city)
+          ? `${
+            service.location.address
+            ? service.location.address + ", "
+            : ""
+          }${service.location.city ?? ""}`
+            .trim()
+            .replace(/,$/, "")
+          : "N/A"}
+        </span>
+      </div>
+      <p className="mt-1 text-sm text-gray-600 line-clamp-2 flex-grow">
+        {service.description}
+      </p>
+      <div className="mt-4 flex items-center justify-between">
+        <div className="text-lg font-bold text-blue-600">
+        {displayPrice}
         </div>
-        <div className="flex items-center gap-1 text-gray-500 mb-3">
-          <MapPin size={14} />
-          <span className="text-sm">
-            {/* Show address/city if available, fallback to 'N/A' */}
-            {service.location && (service.location.address || service.location.city) ?
-              `${service.location.address ? service.location.address + ', ' : ''}${service.location.city ?? ''}`.trim().replace(/,$/, '') :
-              'N/A'}
-          </span>
-        </div>
-        <p className="text-gray-600 text-sm mb-4 line-clamp-2">
-          {service.description}
-        </p>
-        <div className="flex items-center justify-between">
-          <div>
-            <span className="text-2xl font-bold text-gray-900">
-              {displayPrice}
-            </span>
-          </div>
-          <button className="bg-blue-600 hover:bg-blue-700 text-white px-6 py-2 rounded-xl transition-all duration-300 transform hover:scale-105">
-            Book Now
-          </button>
-        </div>
+        <span className="inline-flex items-center px-3 py-1 rounded-full text-xs font-medium bg-blue-100 text-blue-800 capitalize">
+        {category}
+        </span>
+      </div>
       </div>
     </div>
   );
@@ -719,10 +822,12 @@ export default function Maghreby() {
     accommodations: [] as Service[],
     cars: [] as Service[],
     restaurants: [] as Service[],
-    activities: [] as Service[]
+    activities: [] as Service[],
   });
   const [loading, setLoading] = useState<boolean>(true);
   const [error, setError] = useState<string | null>(null);
+  const [favoriteMap, setFavoriteMap] = useState<Record<string, boolean>>({});
+  const userId = getUserIdFromCookie();
 
   const heroImages = [
     { src: "/listing1.jpg", alt: "Luxury resort overlooking ocean" },
@@ -736,26 +841,43 @@ export default function Maghreby() {
       try {
         setLoading(true);
         setError(null);
-        
-        const servicesData = await fetchAllServices();
+
+        const servicesData = await fetchAllServices(userId || undefined);
         setServices(servicesData);
       } catch (err) {
-        console.error('Error fetching services:', err);
-        setError('Failed to load services. Please try again later.');
+        console.error("Error fetching services:", err);
+        setError("Failed to load services. Please try again later.");
       } finally {
         setLoading(false);
       }
     };
 
     loadServices();
-  }, []);
+  }, [userId]);
+
+  useEffect(() => {
+    if (services) {
+      const map: Record<string, boolean> = {};
+      Object.values(services)
+        .flat()
+        .forEach((service: Service) => {
+          map[service.id] = Boolean(service.isFavorite);
+        });
+      setFavoriteMap(map);
+    }
+  }, [services]);
+
+  const handleFavoriteToggle = (
+    service: Service,
+    category: string,
+    newValue: boolean
+  ) => {
+    setFavoriteMap((prev) => ({ ...prev, [service.id]: newValue }));
+  };
 
   // Loading state
   if (loading) {
-    return (
-      <Loader 
-        text="Loading experiences..."/>
-    );
+    return <Loader text="Loading experiences..." />;
   }
 
   // Error state
@@ -764,14 +886,26 @@ export default function Maghreby() {
       <div className="min-h-screen flex items-center justify-center bg-gray-50">
         <div className="text-center p-6 bg-white rounded-xl shadow-md max-w-md mx-4">
           <div className="text-red-500 mb-4">
-            <svg className="w-12 h-12 mx-auto" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 8v4m0 4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
+            <svg
+              className="w-12 h-12 mx-auto"
+              fill="none"
+              stroke="currentColor"
+              viewBox="0 0 24 24"
+            >
+              <path
+                strokeLinecap="round"
+                strokeLinejoin="round"
+                strokeWidth={2}
+                d="M12 8v4m0 4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z"
+              />
             </svg>
           </div>
-          <h2 className="text-xl font-semibold text-gray-800 mb-2">Something went wrong</h2>
+          <h2 className="text-xl font-semibold text-gray-800 mb-2">
+            Something went wrong
+          </h2>
           <p className="text-gray-600 mb-6">{error}</p>
-          <button 
-            onClick={() => window.location.reload()} 
+          <button
+            onClick={() => window.location.reload()}
             className="px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors"
           >
             Try Again
@@ -796,20 +930,29 @@ export default function Maghreby() {
             </div>
             <h2 className="text-4xl font-light text-gray-900">{title}</h2>
           </div>
-            <button
+          <button
             className="flex cursor-pointer items-center gap-2 text-blue-600 hover:text-blue-700 font-medium group"
-            onClick={() => window.location.href = `/services?type=${category}`}
-            >
+            onClick={() =>
+              (window.location.href = `/services?type=${category}`)
+            }
+          >
             View All
             <ArrowRight
               size={18}
               className="group-hover:translate-x-1 transition-transform"
             />
-            </button>
+          </button>
         </div>
         <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-8">
           {services.map((service: Service, index: number) => (
-            <ServiceCard key={index} service={service} category={category} />
+            <ServiceCard
+              key={service.id}
+              service={service}
+              category={category}
+              isFavorite={!!favoriteMap[service.id]}
+              onFavoriteToggle={handleFavoriteToggle}
+              userId={userId}
+            />
           ))}
         </div>
       </div>

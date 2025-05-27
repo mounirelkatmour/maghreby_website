@@ -24,8 +24,8 @@ import {
 } from "lucide-react";
 
 // Import react-select and country-list
-import Select from 'react-select';
-import countries from 'country-list'; // Import the default export
+import Select from "react-select";
+import countries from "country-list"; // Import the default export
 import Loader from "../components/Loader";
 
 interface ExtendedUser {
@@ -57,11 +57,14 @@ function calculateAge(birthdate?: string) {
 function formatDate(dateStr?: string, options?: Intl.DateTimeFormatOptions) {
   if (!dateStr) return "N/A";
   const d = new Date(dateStr);
-  return d.toLocaleDateString(undefined, options || {
-    year: "numeric",
-    month: "long",
-    day: "numeric",
-  });
+  return d.toLocaleDateString(
+    undefined,
+    options || {
+      year: "numeric",
+      month: "long",
+      day: "numeric",
+    }
+  );
 }
 
 export default function ProfilePage() {
@@ -87,14 +90,17 @@ export default function ProfilePage() {
 
   // Generate country options once using useMemo for performance
   const countryOptions = useMemo(() => {
-    return countries.getData()
-        .filter(country => country.code !== 'IL') // Exclude by code
+    return (
+      countries
+        .getData()
+        .filter((country) => country.code !== "IL") // Exclude by code
         // Or, to exclude by name: .filter(country => country.name !== 'Israel')
         .map((country: { code: string; name: string }) => ({
-        value: country.code,
-        label: country.name,
-        }));
-    }, []);
+          value: country.code,
+          label: country.name,
+        }))
+    );
+  }, []);
 
   useEffect(() => {
     if (!isLoading && !user) {
@@ -102,16 +108,19 @@ export default function ProfilePage() {
       return;
     }
     if (user) {
-        const usedId = document.cookie
-          .split('; ')
-          .find(row => row.startsWith('userId='))
-          ?.split('=')[1] || null;
+      const usedId =
+        document.cookie
+          .split("; ")
+          .find((row) => row.startsWith("userId="))
+          ?.split("=")[1] || null;
       setUserId(userId);
       const fetchUserData = async () => {
         let backendUser: any = null;
         if (usedId) {
           try {
-            const res = await fetch(`http://localhost:8080/api/users/${usedId}`);
+            const res = await fetch(
+              `http://localhost:8080/api/users/${usedId}`
+            );
             if (res.ok) {
               backendUser = await res.json();
             } else if (res.status === 404) {
@@ -140,17 +149,27 @@ export default function ProfilePage() {
         //     console.error("Error fetching user by auth0_id:", e);
         //   }
         // }
-        
+
         if (backendUser) {
           setUserId(backendUser.id);
           setFirstName(
             backendUser.firstName ||
-            (typeof user.given_name === "string" ? user.given_name.split(' ')[0] : '')
+              (typeof user.given_name === "string"
+                ? user.given_name.split(" ")[0]
+                : "")
           );
-          setLastName(backendUser.lastName || (user.family_name || (user.name || '').split(' ').slice(1).join(' ')));
+          setLastName(
+            backendUser.lastName ||
+              user.family_name ||
+              (user.name || "").split(" ").slice(1).join(" ")
+          );
           setRoleState(backendUser.role || "USER");
           setBio(backendUser.bio || "");
-          setBirthdate(backendUser.birthDate ? new Date(backendUser.birthDate).toISOString().split('T')[0] : "");
+          setBirthdate(
+            backendUser.birthDate
+              ? new Date(backendUser.birthDate).toISOString().split("T")[0]
+              : ""
+          );
           setCity(backendUser.city || "");
           setCountry(backendUser.country || "");
           setPhone(backendUser.phoneNumber || "");
@@ -160,12 +179,26 @@ export default function ProfilePage() {
           setMemberSince(backendUser.createdAt || user.created_at || "");
         } else {
           const nameParts = (user.name || "").split(" ");
-          setFirstName(typeof user.given_name === "string" ? user.given_name : (typeof nameParts[0] === "string" ? nameParts[0] : ""));
-          setLastName(typeof user.family_name === "string" ? user.family_name : (nameParts.slice(1).join(" ")));
+          setFirstName(
+            typeof user.given_name === "string"
+              ? user.given_name
+              : typeof nameParts[0] === "string"
+              ? nameParts[0]
+              : ""
+          );
+          setLastName(
+            typeof user.family_name === "string"
+              ? user.family_name
+              : nameParts.slice(1).join(" ")
+          );
           setRoleState((user as ExtendedUser).role || "USER");
           setEmail(typeof user.email === "string" ? user.email : "");
-          setProfilePicture(typeof user.picture === "string" ? user.picture : "");
-          setMemberSince(typeof user.created_at === "string" ? user.created_at : "");
+          setProfilePicture(
+            typeof user.picture === "string" ? user.picture : ""
+          );
+          setMemberSince(
+            typeof user.created_at === "string" ? user.created_at : ""
+          );
           setBio("");
           setBirthdate("");
           setCity("");
@@ -186,9 +219,9 @@ export default function ProfilePage() {
 
   const handleSave = async () => {
     if (!userId && !user?.sub) {
-        console.error("User identifier not found, cannot save profile.");
-        // Add user feedback here, e.g., a toast notification
-        return;
+      console.error("User identifier not found, cannot save profile.");
+      // Add user feedback here, e.g., a toast notification
+      return;
     }
     setSaving(true);
     try {
@@ -201,13 +234,13 @@ export default function ProfilePage() {
         country,
         phoneNumber: phone,
         occupation,
-        ...( !userId && user?.sub && { email: user.email, auth0_id: user.sub } )
+        ...(!userId && user?.sub && { email: user.email, auth0_id: user.sub }),
       };
 
-      const targetUrl = userId 
-        ? `http://localhost:8080/api/users/${userId}` 
+      const targetUrl = userId
+        ? `http://localhost:8080/api/users/${userId}`
         : `http://localhost:8080/api/users`;
-      
+
       const method = userId ? "PATCH" : "POST";
 
       const res = await fetch(targetUrl, {
@@ -224,7 +257,10 @@ export default function ProfilePage() {
       if (!userId && result.id) {
         setUserId(result.id);
       }
-      console.log(`✅ Profile ${method === 'POST' ? 'created' : 'updated'}:`, result);
+      console.log(
+        `✅ Profile ${method === "POST" ? "created" : "updated"}:`,
+        result
+      );
       // Add user feedback here (e.g., toast notification "Profile Saved!")
     } catch (err) {
       const errorMsg = err instanceof Error ? err.message : String(err);
@@ -235,12 +271,8 @@ export default function ProfilePage() {
     }
   };
 
-
   if (isLoading) {
-    return (
-      <Loader 
-        text="Loading your profile..."/>
-    );
+    return <Loader text="Loading your profile..." />;
   }
 
   if (error) {
@@ -248,7 +280,9 @@ export default function ProfilePage() {
       <div className="min-h-screen bg-slate-50 flex items-center justify-center p-4">
         <div className="bg-white shadow-lg rounded-lg p-8 text-center border border-red-200 max-w-md w-full">
           <div className="text-red-500 text-6xl mb-4">⚠️</div>
-          <h2 className="text-2xl font-bold mb-4 text-red-600">Error Loading Profile</h2>
+          <h2 className="text-2xl font-bold mb-4 text-red-600">
+            Error Loading Profile
+          </h2>
           <p className="mb-6 text-gray-700">
             {error?.message || "An unknown error occurred."}
           </p>
@@ -267,10 +301,14 @@ export default function ProfilePage() {
       <div className="min-h-screen bg-slate-50 pt-26 pb-12 px-4 sm:px-6 lg:px-8">
         <header className="max-w-6xl mx-auto mb-10">
           <h1 className="text-3xl sm:text-4xl font-bold text-slate-800 flex items-center gap-2">
-            <span aria-hidden="true"><User size={36} /></span>
+            <span aria-hidden="true">
+              <User size={36} />
+            </span>
             <span>Account Settings</span>
           </h1>
-          <p className="mt-1 text-sm text-slate-600">Manage your profile, and personal information.</p>
+          <p className="mt-1 text-sm text-slate-600">
+            Manage your profile, and personal information.
+          </p>
         </header>
 
         <div className="max-w-6xl mx-auto md:grid md:grid-cols-3 md:gap-8 lg:gap-12">
@@ -287,18 +325,30 @@ export default function ProfilePage() {
                       e.currentTarget.onerror = null;
                       e.currentTarget.src = "/default-avatar.png";
                     }}
+                    referrerPolicy="no-referrer"
                   />
                 </div>
                 <h2 className="text-xl font-semibold text-slate-800">{`${firstName} ${lastName}`}</h2>
                 <p className="text-sm text-slate-500 mb-1">{email}</p>
-                <span className={`text-xs font-medium px-2 py-0.5 rounded-full mb-3 ${
-                  roleState === 'ADMIN' ? 'bg-red-100 text-red-700' : 'bg-blue-100 text-blue-700'
-                }`}>
+                <span
+                  className={`text-xs font-medium px-2 py-0.5 rounded-full mb-3 ${
+                    roleState === "ADMIN"
+                      ? "bg-red-100 text-red-700"
+                      : "bg-blue-100 text-blue-700"
+                  }`}
+                >
                   {roleState}
                 </span>
 
                 <div className="text-xs text-slate-500 w-full pt-3 mt-3 border-t border-slate-200">
-                  <p>Joined: {formatDate(memberSince, { month: 'short', day: 'numeric', year: 'numeric' })}</p>
+                  <p>
+                    Joined:{" "}
+                    {formatDate(memberSince, {
+                      month: "short",
+                      day: "numeric",
+                      year: "numeric",
+                    })}
+                  </p>
                   {emailVerified ? (
                     <p className="text-green-600">Email Verified</p>
                   ) : (
@@ -330,38 +380,95 @@ export default function ProfilePage() {
           {/* Right Column: Form */}
           <main className="md:col-span-2">
             <form
-              onSubmit={(e) => { e.preventDefault(); handleSave(); }}
+              onSubmit={(e) => {
+                e.preventDefault();
+                handleSave();
+              }}
               className="bg-white shadow-sm rounded-lg border border-slate-200"
             >
               {/* Personal Information Section */}
               <div className="px-4 py-5 sm:p-6">
-                <h3 className="text-lg font-medium leading-6 text-slate-900">Personal Information</h3>
-                <p className="mt-1 text-sm text-slate-500">Update your personal details here.</p>
-                
+                <h3 className="text-lg font-medium leading-6 text-slate-900">
+                  Personal Information
+                </h3>
+                <p className="mt-1 text-sm text-slate-500">
+                  Update your personal details here.
+                </p>
+
                 <div className="mt-6 grid grid-cols-1 sm:grid-cols-2 gap-x-4 gap-y-5">
                   <div>
-                    <label htmlFor="firstName" className="block text-sm font-medium text-slate-700 mb-1">First Name</label>
-                    <input type="text" id="firstName" value={firstName} onChange={(e) => setFirstName(e.target.value)} required className="w-full px-3 py-2 border border-slate-300 rounded-md shadow-sm focus:outline-none focus:ring-1 focus:ring-blue-500 focus:border-blue-500 text-slate-900 placeholder-slate-400" />
+                    <label
+                      htmlFor="firstName"
+                      className="block text-sm font-medium text-slate-700 mb-1"
+                    >
+                      First Name
+                    </label>
+                    <input
+                      type="text"
+                      id="firstName"
+                      value={firstName}
+                      onChange={(e) => setFirstName(e.target.value)}
+                      required
+                      className="w-full px-3 py-2 border border-slate-300 rounded-md shadow-sm focus:outline-none focus:ring-1 focus:ring-blue-500 focus:border-blue-500 text-slate-900 placeholder-slate-400"
+                    />
                   </div>
                   <div>
-                    <label htmlFor="lastName" className="block text-sm font-medium text-slate-700 mb-1">Last Name</label>
-                    <input type="text" id="lastName" value={lastName} onChange={(e) => setLastName(e.target.value)} required className="w-full px-3 py-2 border border-slate-300 rounded-md shadow-sm focus:outline-none focus:ring-1 focus:ring-blue-500 focus:border-blue-500 text-slate-900 placeholder-slate-400" />
+                    <label
+                      htmlFor="lastName"
+                      className="block text-sm font-medium text-slate-700 mb-1"
+                    >
+                      Last Name
+                    </label>
+                    <input
+                      type="text"
+                      id="lastName"
+                      value={lastName}
+                      onChange={(e) => setLastName(e.target.value)}
+                      required
+                      className="w-full px-3 py-2 border border-slate-300 rounded-md shadow-sm focus:outline-none focus:ring-1 focus:ring-blue-500 focus:border-blue-500 text-slate-900 placeholder-slate-400"
+                    />
                   </div>
                   <div className="sm:col-span-2">
-                    <label htmlFor="bio" className="block text-sm font-medium text-slate-700 mb-1">Bio</label>
-                    <textarea id="bio" value={bio} onChange={(e) => setBio(e.target.value)} rows={3} className="w-full px-3 py-2 border border-slate-300 rounded-md shadow-sm focus:outline-none focus:ring-1 focus:ring-blue-500 focus:border-blue-500 text-slate-900 placeholder-slate-400 resize-y" placeholder="A little about yourself..."></textarea>
+                    <label
+                      htmlFor="bio"
+                      className="block text-sm font-medium text-slate-700 mb-1"
+                    >
+                      Bio
+                    </label>
+                    <textarea
+                      id="bio"
+                      value={bio}
+                      onChange={(e) => setBio(e.target.value)}
+                      rows={3}
+                      className="w-full px-3 py-2 border border-slate-300 rounded-md shadow-sm focus:outline-none focus:ring-1 focus:ring-blue-500 focus:border-blue-500 text-slate-900 placeholder-slate-400 resize-y"
+                      placeholder="A little about yourself..."
+                    ></textarea>
                   </div>
                   <div>
-                    <label htmlFor="birthdate" className="block text-sm font-medium text-slate-700 mb-1">
-                      <Calendar className="w-4 h-4 inline mr-1.5 relative -top-px text-slate-500" />Date of Birth
+                    <label
+                      htmlFor="birthdate"
+                      className="block text-sm font-medium text-slate-700 mb-1"
+                    >
+                      <Calendar className="w-4 h-4 inline mr-1.5 relative -top-px text-slate-500" />
+                      Date of Birth
                     </label>
-                    <input type="date" id="birthdate" value={birthdate} onChange={(e) => setBirthdate(e.target.value)} className="w-full px-3 py-2 border border-slate-300 rounded-md shadow-sm focus:outline-none focus:ring-1 focus:ring-blue-500 focus:border-blue-500 text-slate-900" />
+                    <input
+                      type="date"
+                      id="birthdate"
+                      value={birthdate}
+                      onChange={(e) => setBirthdate(e.target.value)}
+                      className="w-full px-3 py-2 border border-slate-300 rounded-md shadow-sm focus:outline-none focus:ring-1 focus:ring-blue-500 focus:border-blue-500 text-slate-900"
+                    />
                   </div>
                   {userAge !== null && (
                     <div className="flex flex-col justify-end">
-                      <label className="block text-sm font-medium text-slate-700 mb-1">Age</label>
+                      <label className="block text-sm font-medium text-slate-700 mb-1">
+                        Age
+                      </label>
                       <div className="cursor-not-allowed flex items-center px-3 py-2 bg-slate-100 rounded-md border border-slate-200 text-slate-700">
-                        <span className="mr-1 text-slate-500">{userAge} years old</span>
+                        <span className="mr-1 text-slate-500">
+                          {userAge} years old
+                        </span>
                       </div>
                     </div>
                   )}
@@ -373,13 +480,21 @@ export default function ProfilePage() {
 
               {/* Contact Details Section */}
               <div className="px-4 py-5 sm:p-6">
-                <h3 className="text-lg font-medium leading-6 text-slate-900">Contact Details</h3>
-                <p className="mt-1 text-sm text-slate-500">How we can get in touch with you.</p>
+                <h3 className="text-lg font-medium leading-6 text-slate-900">
+                  Contact Details
+                </h3>
+                <p className="mt-1 text-sm text-slate-500">
+                  How we can get in touch with you.
+                </p>
 
                 <div className="mt-6 grid grid-cols-1 sm:grid-cols-2 gap-x-4 gap-y-5">
                   <div>
-                    <label htmlFor="phone" className="block text-sm font-medium text-slate-700 mb-1">
-                      <Phone className="w-4 h-4 inline mr-1.5 relative -top-px text-slate-500" />Phone Number
+                    <label
+                      htmlFor="phone"
+                      className="block text-sm font-medium text-slate-700 mb-1"
+                    >
+                      <Phone className="w-4 h-4 inline mr-1.5 relative -top-px text-slate-500" />
+                      Phone Number
                     </label>
                     <input
                       type="tel"
@@ -391,8 +506,12 @@ export default function ProfilePage() {
                     />
                   </div>
                   <div>
-                    <label htmlFor="email-display" className="block text-sm font-medium text-slate-700 mb-1">
-                      <Mail className="w-4 h-4 inline mr-1.5 relative -top-px text-slate-500" />Email Address
+                    <label
+                      htmlFor="email-display"
+                      className="block text-sm font-medium text-slate-700 mb-1"
+                    >
+                      <Mail className="w-4 h-4 inline mr-1.5 relative -top-px text-slate-500" />
+                      Email Address
                     </label>
                     <input
                       type="email"
@@ -405,15 +524,25 @@ export default function ProfilePage() {
                   </div>
 
                   <div>
-                    <label htmlFor="country" className="block text-sm font-medium text-slate-700 mb-1">
-                      <Globe className="w-4 h-4 inline mr-1.5 relative -top-px text-slate-500" />Country
+                    <label
+                      htmlFor="country"
+                      className="block text-sm font-medium text-slate-700 mb-1"
+                    >
+                      <Globe className="w-4 h-4 inline mr-1.5 relative -top-px text-slate-500" />
+                      Country
                     </label>
                     <div>
                       <Select
                         id="country"
                         options={countryOptions}
-                        value={countryOptions.find(option => option.value === country) || null}
-                        onChange={(selectedOption) => setCountry(selectedOption ? selectedOption.value : '')}
+                        value={
+                          countryOptions.find(
+                            (option) => option.value === country
+                          ) || null
+                        }
+                        onChange={(selectedOption) =>
+                          setCountry(selectedOption ? selectedOption.value : "")
+                        }
                         classNamePrefix="react-select"
                         placeholder="Select a country..."
                         isClearable
@@ -421,45 +550,51 @@ export default function ProfilePage() {
                         styles={{
                           control: (provided, state) => ({
                             ...provided,
-                            borderColor: '#cbd5e1',
-                            borderRadius: '0.375rem',
-                            boxShadow: state.isFocused ? '0 0 0 1px #2563eb' : 'none',
-                            minHeight: '40px',
-                            backgroundColor: 'white',
+                            borderColor: "#cbd5e1",
+                            borderRadius: "0.375rem",
+                            boxShadow: state.isFocused
+                              ? "0 0 0 1px #2563eb"
+                              : "none",
+                            minHeight: "40px",
+                            backgroundColor: "white",
                           }),
                           singleValue: (provided) => ({
                             ...provided,
-                            color: '#0f172a',
+                            color: "#0f172a",
                           }),
                           input: (provided) => ({
                             ...provided,
-                            color: '#0f172a',
+                            color: "#0f172a",
                           }),
                           placeholder: (provided) => ({
                             ...provided,
-                            color: '#0f172a',
+                            color: "#0f172a",
                           }),
                           menu: (provided) => ({
                             ...provided,
-                            color: '#0f172a',
+                            color: "#0f172a",
                           }),
                           option: (provided, state) => ({
                             ...provided,
-                            color: '#0f172a',
+                            color: "#0f172a",
                             backgroundColor: state.isSelected
-                              ? '#e0e7ef'
+                              ? "#e0e7ef"
                               : state.isFocused
-                              ? '#f1f5f9'
-                              : 'white',
+                              ? "#f1f5f9"
+                              : "white",
                           }),
                         }}
                       />
                     </div>
                   </div>
-                  
+
                   <div>
-                    <label htmlFor="city" className="block text-sm font-medium text-slate-700 mb-1">
-                      <MapPin className="w-4 h-4 inline mr-1.5 relative -top-px text-slate-500" />City
+                    <label
+                      htmlFor="city"
+                      className="block text-sm font-medium text-slate-700 mb-1"
+                    >
+                      <MapPin className="w-4 h-4 inline mr-1.5 relative -top-px text-slate-500" />
+                      City
                     </label>
                     <input
                       type="text"
@@ -471,22 +606,37 @@ export default function ProfilePage() {
                   </div>
                 </div>
               </div>
-              
+
               {/* Divider */}
               <div className="border-t border-slate-200"></div>
 
               {/* Professional Details Section */}
               <div className="px-4 py-5 sm:p-6">
-                <h3 className="text-lg font-medium leading-6 text-slate-900">Professional Details</h3>
-                <p className="mt-1 text-sm text-slate-500">Information about your work.</p>
-                
+                <h3 className="text-lg font-medium leading-6 text-slate-900">
+                  Professional Details
+                </h3>
+                <p className="mt-1 text-sm text-slate-500">
+                  Information about your work.
+                </p>
+
                 <div className="mt-6 grid grid-cols-1 sm:grid-cols-2 gap-x-4 gap-y-5">
-                    <div className="sm:col-span-2">
-                        <label htmlFor="occupation" className="block text-sm font-medium text-slate-700 mb-1">
-                        <Briefcase className="w-4 h-4 inline mr-1.5 relative -top-px text-slate-500" />Occupation
-                        </label>
-                        <input type="text" id="occupation" value={occupation} onChange={(e) => setOccupation(e.target.value)} className="w-full px-3 py-2 border border-slate-300 rounded-md shadow-sm focus:outline-none focus:ring-1 focus:ring-blue-500 focus:border-blue-500 text-slate-900 placeholder-slate-400" placeholder="e.g., Software Engineer" />
-                    </div>
+                  <div className="sm:col-span-2">
+                    <label
+                      htmlFor="occupation"
+                      className="block text-sm font-medium text-slate-700 mb-1"
+                    >
+                      <Briefcase className="w-4 h-4 inline mr-1.5 relative -top-px text-slate-500" />
+                      Occupation
+                    </label>
+                    <input
+                      type="text"
+                      id="occupation"
+                      value={occupation}
+                      onChange={(e) => setOccupation(e.target.value)}
+                      className="w-full px-3 py-2 border border-slate-300 rounded-md shadow-sm focus:outline-none focus:ring-1 focus:ring-blue-500 focus:border-blue-500 text-slate-900 placeholder-slate-400"
+                      placeholder="e.g., Software Engineer"
+                    />
+                  </div>
                 </div>
               </div>
 

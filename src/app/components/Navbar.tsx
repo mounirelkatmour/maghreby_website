@@ -169,6 +169,7 @@ const Navbar = () => {
                     src={user.picture}
                     alt={user.name || "Profile"}
                     className="w-6 h-6 rounded-full"
+                    referrerPolicy="no-referrer"
                     onError={(e) => {
                       e.currentTarget.onerror = null;
                       e.currentTarget.src = "/default-avatar.png";

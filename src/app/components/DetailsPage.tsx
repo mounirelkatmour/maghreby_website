@@ -167,14 +167,14 @@ const ImageGallery: React.FC<{
             )}
           </div>
 
-          {/* Thumbnails Container */}
-          <div className="h-full overflow-y-auto pr-12 hide-scrollbar">
-            <div className="grid grid-cols-4 lg:grid-cols-1 gap-2 lg:gap-3">
+            {/* Thumbnails Container */}
+            <div className="h-full overflow-y-auto p-4 hide-scrollbar">
+            <div className="grid grid-cols-4 lg:grid-cols-1 gap-1.5 lg:gap-4">
               {visibleThumbnails.map((idx) => (
-                <motion.div
-                  key={images[idx].src}
-                  layout
-                  initial={{ opacity: 0, y: 20 }}
+              <motion.div
+                key={images[idx].src}
+                layout
+                initial={{ opacity: 0, y: 20 }}
                   animate={{ opacity: 1, y: 0 }}
                   exit={{ opacity: 0, y: -20 }}
                   transition={{ duration: 0.3 }}
@@ -182,7 +182,7 @@ const ImageGallery: React.FC<{
                   whileTap={{ scale: 0.97 }}
                   className={`relative h-20 lg:h-24 rounded-lg overflow-hidden cursor-pointer transition-all duration-300 ${
                     idx === currentIndex
-                      ? "ring-2 ring-blue-500 ring-offset-2"
+                      ? "ring-2 ring-blue-500 ring-offset-2 scale-105 shadow-lg"
                       : "hover:ring-2 hover:ring-blue-300 hover:ring-offset-1"
                   }`}
                   onClick={() => scrollToThumbnail(idx)}
