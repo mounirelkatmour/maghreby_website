@@ -1,7 +1,8 @@
+/* eslint-disable @typescript-eslint/no-explicit-any */
 /* eslint-disable @next/next/no-img-element */
 import { useState, useEffect, useRef } from "react";
-import { useRouter } from 'next/navigation';
-import Link from 'next/link';
+import { useRouter } from "next/navigation";
+import Link from "next/link";
 import {
   Bed,
   Car,
@@ -13,8 +14,8 @@ import {
   Settings,
   ChevronDown,
   LogOut,
-} from 'lucide-react';
-
+  ShieldUser,
+} from "lucide-react";
 
 // User type definition
 interface User {
@@ -27,6 +28,7 @@ const Navbar = () => {
   const [isMenuOpen, setIsMenuOpen] = useState(false);
   const [isProfileDropdownOpen, setIsProfileDropdownOpen] = useState(false);
   const [user, setUser] = useState<User | null>(null);
+  const [backendUser, setBackendUser] = useState<any>(null);
   const [isLoading, setIsLoading] = useState(true);
   const [logoutLoading, setLogoutLoading] = useState(false);
   const router = useRouter();
@@ -59,17 +61,37 @@ const Navbar = () => {
     checkUser();
   }, []);
 
+  // Fetch backend user info after Auth0 user is loaded
+  useEffect(() => {
+    if (!isLoading && user) {
+      // Get userId from cookies
+      const userId = document.cookie
+        .split("; ")
+        .find((row) => row.startsWith("userId="))
+        ?.split("=")[1];
+      if (userId) {
+        fetch(`http://localhost:8080/api/users/${userId}`)
+          .then((res) => (res.ok ? res.json() : null))
+          .then((data) => setBackendUser(data))
+          .catch(() => setBackendUser(null));
+      }
+    }
+  }, [user, isLoading]);
+
   // Close dropdown when clicking outside
   useEffect(() => {
     const handleClickOutside = (event: MouseEvent) => {
-      if (dropdownRef.current && !dropdownRef.current.contains(event.target as Node)) {
+      if (
+        dropdownRef.current &&
+        !dropdownRef.current.contains(event.target as Node)
+      ) {
         setIsProfileDropdownOpen(false);
       }
     };
 
-    document.addEventListener('mousedown', handleClickOutside);
+    document.addEventListener("mousedown", handleClickOutside);
     return () => {
-      document.removeEventListener('mousedown', handleClickOutside);
+      document.removeEventListener("mousedown", handleClickOutside);
     };
   }, []);
 
@@ -79,19 +101,41 @@ const Navbar = () => {
   };
 
   const profileMenuItems = [
-    { icon: User, label: 'Profile', href: '/profile' },
-    { icon: ShoppingCart, label: 'Cart', href: '/cart' },
-    { icon: Heart, label: 'Favorites', href: '/favorites' },
-    { icon: Settings, label: 'Settings', href: '/settings' },
-    { icon: LogOut, label: 'Logout', href: '#', isLogout: true, onClick: handleLogout },
+    { icon: User, label: "Profile", href: "/profile" },
+    { icon: ShoppingCart, label: "Cart", href: "/cart" },
+    { icon: Heart, label: "Favorites", href: "/favorites" },
+    { icon: Settings, label: "Settings", href: "/settings" },
+    {
+      icon: LogOut,
+      label: "Logout",
+      href: "#",
+      isLogout: true,
+      onClick: handleLogout,
+    },
   ];
+
+  // Add Admin Dashboard menu item if backendUser.role === 'ADMIN'
+  const enhancedProfileMenuItems =
+    backendUser && backendUser.role === "ADMIN"
+      ? [
+          ...profileMenuItems.slice(0, 4), // Profile, Cart, Favorites, Settings
+          {
+            icon: ShieldUser,
+            label: "Admin dashboard",
+            href: "/admin/dashboard",
+          },
+          ...profileMenuItems.slice(4), // Logout
+        ]
+      : profileMenuItems;
 
   return (
     <div className="fixed top-0 left-0 right-0 z-50 bg-white/95 backdrop-blur-xl border-b border-blue-100/50 shadow-lg">
       <div className="max-w-7xl mx-auto px-6 py-4 flex justify-between items-center">
         {/* Travel-friendly Logo */}
-        <div className="flex items-center space-x-3 cursor-pointer"
-            onClick={() => router.push("/")}>
+        <div
+          className="flex items-center space-x-3 cursor-pointer"
+          onClick={() => router.push("/")}
+        >
           <div className="w-10 h-10 rounded-full flex items-center justify-center shadow-md bg-white overflow-hidden">
             <img
               src="https://iili.io/3Z5wIb1.png"
@@ -110,47 +154,47 @@ const Navbar = () => {
         {/* Friendly Nav Links */}
         <div className="hidden md:flex items-center space-x-8 text-gray-700">
           <Link
-              href="/services?type=accommodations"
-              className="relative group text-sm font-medium hover:text-blue-600 transition-all duration-300 py-2"
+            href="/services?type=accommodations"
+            className="relative group text-sm font-medium hover:text-blue-600 transition-all duration-300 py-2"
           >
-              <span className="flex items-center space-x-1">
+            <span className="flex items-center space-x-1">
               <Bed className="w-4 h-4" strokeWidth={2} />
               <span>Places to Stay</span>
-              </span>
-              <span className="absolute -bottom-1 left-0 w-0 h-0.5 bg-gradient-to-r from-blue-500 to-teal-500 group-hover:w-full transition-all duration-300 rounded-full"></span>
+            </span>
+            <span className="absolute -bottom-1 left-0 w-0 h-0.5 bg-gradient-to-r from-blue-500 to-teal-500 group-hover:w-full transition-all duration-300 rounded-full"></span>
           </Link>
 
           <Link
-              href="/services?type=cars"
-              className="relative group text-sm font-medium hover:text-blue-600 transition-all duration-300 py-2"
+            href="/services?type=cars"
+            className="relative group text-sm font-medium hover:text-blue-600 transition-all duration-300 py-2"
           >
-              <span className="flex items-center space-x-1">
+            <span className="flex items-center space-x-1">
               <Car className="w-4 h-4" strokeWidth={2} />
               <span>Car Rentals</span>
-              </span>
-              <span className="absolute -bottom-1 left-0 w-0 h-0.5 bg-gradient-to-r from-blue-500 to-teal-500 group-hover:w-full transition-all duration-300 rounded-full"></span>
+            </span>
+            <span className="absolute -bottom-1 left-0 w-0 h-0.5 bg-gradient-to-r from-blue-500 to-teal-500 group-hover:w-full transition-all duration-300 rounded-full"></span>
           </Link>
 
           <Link
-              href="/services?type=restaurants"
-              className="relative group text-sm font-medium hover:text-blue-600 transition-all duration-300 py-2"
+            href="/services?type=restaurants"
+            className="relative group text-sm font-medium hover:text-blue-600 transition-all duration-300 py-2"
           >
-              <span className="flex items-center space-x-1">
+            <span className="flex items-center space-x-1">
               <Utensils className="w-4 h-4" strokeWidth={2} />
               <span>Local Cuisine</span>
-              </span>
-              <span className="absolute -bottom-1 left-0 w-0 h-0.5 bg-gradient-to-r from-blue-500 to-teal-500 group-hover:w-full transition-all duration-300 rounded-full"></span>
+            </span>
+            <span className="absolute -bottom-1 left-0 w-0 h-0.5 bg-gradient-to-r from-blue-500 to-teal-500 group-hover:w-full transition-all duration-300 rounded-full"></span>
           </Link>
 
           <Link
-              href="/services?type=activities"
-              className="relative group text-sm font-medium hover:text-blue-600 transition-all duration-300 py-2"
+            href="/services?type=activities"
+            className="relative group text-sm font-medium hover:text-blue-600 transition-all duration-300 py-2"
           >
-              <span className="flex items-center space-x-1">
+            <span className="flex items-center space-x-1">
               <Mountain className="w-4 h-4" strokeWidth={2} />
               <span>Experiences</span>
-              </span>
-              <span className="absolute -bottom-1 left-0 w-0 h-0.5 bg-gradient-to-r from-blue-500 to-teal-500 group-hover:w-full transition-all duration-300 rounded-full"></span>
+            </span>
+            <span className="absolute -bottom-1 left-0 w-0 h-0.5 bg-gradient-to-r from-blue-500 to-teal-500 group-hover:w-full transition-all duration-300 rounded-full"></span>
           </Link>
         </div>
 
@@ -164,7 +208,24 @@ const Navbar = () => {
                 onClick={() => setIsProfileDropdownOpen(!isProfileDropdownOpen)}
                 className="flex items-center space-x-2 text-gray-600 text-sm font-medium hover:text-blue-600 transition-colors duration-300 px-4 py-2 rounded-lg hover:bg-blue-50"
               >
-                {user.picture ? (
+                {backendUser &&
+                backendUser.profilImg &&
+                backendUser.profilImg !== "assets/images/default_user.png" ? (
+                  <img
+                    src={backendUser.profilImg}
+                    alt={
+                      (backendUser.firstName || "") +
+                      " " +
+                      (backendUser.lastName || "")
+                    }
+                    className="w-6 h-6 rounded-full"
+                    referrerPolicy="no-referrer"
+                    onError={(e) => {
+                      e.currentTarget.onerror = null;
+                      e.currentTarget.src = "/default-avatar.png";
+                    }}
+                  />
+                ) : user.picture ? (
                   <img
                     src={user.picture}
                     alt={user.name || "Profile"}
@@ -177,21 +238,31 @@ const Navbar = () => {
                   />
                 ) : (
                   <div className="w-6 h-6 rounded-full bg-blue-500 flex items-center justify-center text-white text-xs font-bold">
-                    {user.name ? user.name.charAt(0).toUpperCase() : "U"}
+                    {backendUser && backendUser.firstName
+                      ? backendUser.firstName.charAt(0).toUpperCase()
+                      : user.name
+                      ? user.name.charAt(0).toUpperCase()
+                      : "U"}
                   </div>
                 )}
-                <span>{user.name || "My Account"}</span>
-                <ChevronDown 
+                <span>
+                  {backendUser
+                    ? `${backendUser.firstName || ""} ${
+                        backendUser.lastName || ""
+                      }`.trim()
+                    : user.name || "My Account"}
+                </span>
+                <ChevronDown
                   className={`w-4 h-4 transition-transform duration-200 ${
-                    isProfileDropdownOpen ? 'rotate-180' : ''
-                  }`} 
+                    isProfileDropdownOpen ? "rotate-180" : ""
+                  }`}
                 />
               </button>
 
               {/* Dropdown Menu */}
               {isProfileDropdownOpen && (
                 <div className="absolute right-0 mt-2 w-48 bg-white rounded-lg shadow-lg border border-gray-200 py-2 z-10">
-                  {profileMenuItems.map((item, index) => (
+                  {enhancedProfileMenuItems.map((item, index) => (
                     <div key={index}>
                       {item.isLogout && index > 0 && (
                         <div className="border-t border-gray-200 my-1"></div>
@@ -203,22 +274,26 @@ const Navbar = () => {
                             item.onClick?.();
                           }}
                           className={`w-full flex items-center space-x-3 px-4 py-2 text-sm transition-colors duration-200 text-left ${
-                            item.isLogout 
-                              ? 'text-red-600 hover:bg-red-50 hover:text-red-700' 
-                              : 'text-gray-700 hover:bg-blue-50 hover:text-blue-600'
-                          } ${logoutLoading ? 'opacity-50 cursor-not-allowed' : ''}`}
+                            item.isLogout
+                              ? "text-red-600 hover:bg-red-50 hover:text-red-700"
+                              : "text-gray-700 hover:bg-blue-50 hover:text-blue-600"
+                          } ${
+                            logoutLoading ? "opacity-50 cursor-not-allowed" : ""
+                          }`}
                           disabled={logoutLoading}
                         >
                           <item.icon className="w-4 h-4" strokeWidth={2} />
-                          <span>{logoutLoading ? 'Logging out...' : item.label}</span>
+                          <span>
+                            {logoutLoading ? "Logging out..." : item.label}
+                          </span>
                         </button>
                       ) : (
                         <Link
                           href={item.href}
                           className={`flex items-center space-x-3 px-4 py-2 text-sm transition-colors duration-200 ${
-                            item.isLogout 
-                              ? 'text-red-600 hover:bg-red-50 hover:text-red-700' 
-                              : 'text-gray-700 hover:bg-blue-50 hover:text-blue-600'
+                            item.isLogout
+                              ? "text-red-600 hover:bg-red-50 hover:text-red-700"
+                              : "text-gray-700 hover:bg-blue-50 hover:text-blue-600"
                           }`}
                           onClick={() => setIsProfileDropdownOpen(false)}
                         >
@@ -349,22 +424,26 @@ const Navbar = () => {
                             item.onClick?.();
                           }}
                           className={`w-full flex items-center space-x-3 transition-colors duration-300 py-3 px-3 rounded-lg text-left ${
-                            item.isLogout 
-                              ? 'text-red-600 hover:text-red-700 hover:bg-red-50' 
-                              : 'text-gray-700 hover:text-blue-600 hover:bg-blue-50'
-                          } ${logoutLoading ? 'opacity-50 cursor-not-allowed' : ''}`}
+                            item.isLogout
+                              ? "text-red-600 hover:text-red-700 hover:bg-red-50"
+                              : "text-gray-700 hover:text-blue-600 hover:bg-blue-50"
+                          } ${
+                            logoutLoading ? "opacity-50 cursor-not-allowed" : ""
+                          }`}
                           disabled={logoutLoading}
                         >
                           <item.icon className="w-5 h-5" strokeWidth={2} />
-                          <span className="font-medium">{logoutLoading ? 'Logging out...' : item.label}</span>
+                          <span className="font-medium">
+                            {logoutLoading ? "Logging out..." : item.label}
+                          </span>
                         </button>
                       ) : (
                         <Link
                           href={item.href}
                           className={`flex items-center space-x-3 transition-colors duration-300 py-3 px-3 rounded-lg ${
-                            item.isLogout 
-                              ? 'text-red-600 hover:text-red-700 hover:bg-red-50' 
-                              : 'text-gray-700 hover:text-blue-600 hover:bg-blue-50'
+                            item.isLogout
+                              ? "text-red-600 hover:text-red-700 hover:bg-red-50"
+                              : "text-gray-700 hover:text-blue-600 hover:bg-blue-50"
                           }`}
                           onClick={() => setIsMenuOpen(false)}
                         >

@@ -18,6 +18,7 @@ import {
   ChevronLeft,
   ChevronRight,
 } from "lucide-react";
+import axios from "axios";
 
 import {
   fetchServiceById,
@@ -30,6 +31,13 @@ import {
   Activity,
   addServiceToFavorites,
   removeServiceFromFavorites,
+  fetchReviews,
+  fetchAverageRating,
+  addReview,
+  updateReview,
+  deleteReview,
+  Review,
+  UserProfile,
 } from "../utils/fetch_services";
 import Navbar from "./Navbar";
 import { useRouter } from "next/navigation";
@@ -167,14 +175,14 @@ const ImageGallery: React.FC<{
             )}
           </div>
 
-            {/* Thumbnails Container */}
-            <div className="h-full overflow-y-auto p-4 hide-scrollbar">
+          {/* Thumbnails Container */}
+          <div className="h-full overflow-y-auto p-4 hide-scrollbar">
             <div className="grid grid-cols-4 lg:grid-cols-1 gap-1.5 lg:gap-4">
               {visibleThumbnails.map((idx) => (
-              <motion.div
-                key={images[idx].src}
-                layout
-                initial={{ opacity: 0, y: 20 }}
+                <motion.div
+                  key={images[idx].src}
+                  layout
+                  initial={{ opacity: 0, y: 20 }}
                   animate={{ opacity: 1, y: 0 }}
                   exit={{ opacity: 0, y: -20 }}
                   transition={{ duration: 0.3 }}
@@ -308,6 +316,14 @@ const DetailsPage: React.FC<DetailsPageProps> = ({
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [isFavorite, setIsFavorite] = useState<boolean>(false);
+  const [reviews, setReviews] = useState<Review[]>([]);
+  const [averageRating, setAverageRating] = useState<number | null>(null);
+  const [reviewLoading, setReviewLoading] = useState(false);
+  const [reviewError, setReviewError] = useState<string | null>(null);
+  const [userReview, setUserReview] = useState<Review | null>(null);
+  const [ratingInput, setRatingInput] = useState<number>(0);
+  const [commentInput, setCommentInput] = useState<string>("");
+  const [hoveredStar, setHoveredStar] = useState(0);
   const router = useRouter();
 
   // Get userId from cookie (client-side only)
@@ -347,6 +363,39 @@ const DetailsPage: React.FC<DetailsPageProps> = ({
     fetchData();
   }, [serviceId, serviceType, userId]);
 
+  // Fetch reviews and average rating
+  useEffect(() => {
+    const fetchReviewsData = async () => {
+      setReviewLoading(true);
+      setReviewError(null);
+      try {
+        const reviewsData = await fetchReviews(serviceType, serviceId);
+        setReviews(reviewsData);
+        // Find if the current user has a review
+        if (userId) {
+          const myReview = reviewsData.find((r) => r.userId === userId);
+          setUserReview(myReview || null);
+          setRatingInput(myReview?.rating || 0);
+          setCommentInput(myReview?.comment || "");
+        }
+      } catch (e) {
+        setReviewError("Failed to load reviews.");
+      } finally {
+        setReviewLoading(false);
+      }
+    };
+    const fetchAvg = async () => {
+      try {
+        const avg = await fetchAverageRating(serviceType, serviceId);
+        setAverageRating(avg);
+      } catch {
+        setAverageRating(null);
+      }
+    };
+    fetchReviewsData();
+    fetchAvg();
+  }, [serviceId, serviceType, userId]);
+
   const handleFavoriteClick = async () => {
     if (!service || !userId) return;
     try {
@@ -362,6 +411,128 @@ const DetailsPage: React.FC<DetailsPageProps> = ({
       console.error("Failed to update favorite:", err);
     }
   };
+
+  // Handle review submit (add or update)
+  const handleReviewSubmit = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!userId) return;
+    setReviewLoading(true);
+    setReviewError(null);
+    try {
+      const now = new Date().toISOString();
+      if (userReview) {
+        // Update
+        const updated = await updateReview(
+          serviceType,
+          serviceId,
+          userReview.id,
+          {
+            rating: ratingInput,
+            comment: commentInput,
+            updatedAt: now,
+          }
+        );
+        setUserReview(updated);
+      } else {
+        // Add
+        const added = await addReview(serviceType, serviceId, {
+          userId,
+          rating: ratingInput,
+          comment: commentInput,
+          createdAt: now,
+          updatedAt: now,
+        });
+        setUserReview(added);
+      }
+      // Refresh reviews and average
+      const reviewsData = await fetchReviews(serviceType, serviceId);
+      setReviews(reviewsData);
+      const avg = await fetchAverageRating(serviceType, serviceId);
+      setAverageRating(avg);
+      // Update service averageRating in state for instant UI update
+      setService((prev) => (prev ? { ...prev, averageRating: avg } : prev));
+      // PATCH averageRating to backend for all service types
+      try {
+        await axios.patch(
+          `http://localhost:8080/api/services/${serviceType}/${serviceId}`,
+          { averageRating: avg }
+        );
+      } catch (err) {
+        console.error("Failed to PATCH averageRating:", err);
+      }
+    } catch (e) {
+      setReviewError("Failed to submit review.");
+    } finally {
+      setReviewLoading(false);
+    }
+  };
+
+  // Handle review delete
+  const handleDeleteReview = async () => {
+    if (!userReview) return;
+    setReviewLoading(true);
+    setReviewError(null);
+    try {
+      await deleteReview(serviceType, serviceId, userReview.id);
+      setUserReview(null);
+      setRatingInput(0);
+      setCommentInput("");
+      // Refresh reviews and average
+      const reviewsData = await fetchReviews(serviceType, serviceId);
+      setReviews(reviewsData);
+      const avg = await fetchAverageRating(serviceType, serviceId);
+      setAverageRating(avg);
+      // Update service averageRating in state for instant UI update
+      setService((prev) => (prev ? { ...prev, averageRating: avg } : prev));
+      // PATCH averageRating to backend for all service types
+      try {
+        await axios.patch(
+          `http://localhost:8080/api/services/${serviceType}/${serviceId}`,
+          { averageRating: avg }
+        );
+      } catch (err) {
+        console.error("Failed to PATCH averageRating:", err);
+      }
+    } catch (e) {
+      setReviewError("Failed to delete review.");
+    } finally {
+      setReviewLoading(false);
+    }
+  };
+
+  // Fetch user info for reviews missing user data
+  useEffect(() => {
+    const fetchMissingUserInfo = async () => {
+      const reviewsToUpdate = reviews.filter((r) => !r.user && r.userId);
+      if (reviewsToUpdate.length === 0) return;
+      const updatedReviews = await Promise.all(
+        reviews.map(async (review) => {
+          if (review.user || !review.userId) return review;
+          try {
+            const res = await axios.get(
+              `http://localhost:8080/api/users/${review.userId}`
+            );
+            const user = res.data;
+            return {
+              ...review,
+              user: {
+                id: user.id,
+                firstName: user.firstName,
+                lastName: user.lastName,
+                profileImageUrl: user.profilImg || "/default-avatar.png",
+              },
+            };
+          } catch {
+            return review;
+          }
+        })
+      );
+      setReviews(updatedReviews);
+    };
+    if (reviews.some((r) => !r.user && r.userId)) {
+      fetchMissingUserInfo();
+    }
+  }, [reviews]);
 
   if (loading)
     return (
@@ -455,14 +626,16 @@ const DetailsPage: React.FC<DetailsPageProps> = ({
                   <div className="flex items-center bg-yellow-50 px-3 py-1 rounded-full">
                     <Star className="h-5 w-5 text-yellow-400 fill-current" />
                     <span className="ml-2 text-lg font-semibold text-gray-800">
-                      {service.averageRating?.toFixed(1) || "N/A"}
+                      {averageRating !== null
+                        ? averageRating.toFixed(1)
+                        : "N/A"}
                     </span>
                     <span className="ml-2 text-gray-600 text-sm">
                       (
-                      {typeof (service as { reviewCount?: number })
-                        .reviewCount === "number"
-                        ? (service as { reviewCount?: number }).reviewCount
-                        : 0}{" "}
+                      {
+                        reviews.filter((r) => typeof r.rating === "number")
+                          .length
+                      }{" "}
                       reviews)
                     </span>
                   </div>
@@ -722,12 +895,140 @@ const DetailsPage: React.FC<DetailsPageProps> = ({
               <motion.button
                 whileHover={{ scale: 1.05, y: -2 }}
                 whileTap={{ scale: 0.95 }}
-                className="bg-gradient-to-r from-blue-600 to-blue-700 hover:from-blue-700 hover:to-blue-800 text-white font-bold py-4 px-12 rounded-2xl shadow-xl hover:shadow-2xl transition-all duration-300 flex items-center justify-center space-x-3"
+                className="bg-gradient-to-r from-green-400 to-green-600 hover:from-green-500 hover:to-green-700 text-white font-bold py-4 px-12 rounded-2xl shadow-xl hover:shadow-2xl transition-all duration-50 flex items-center justify-center space-x-3"
               >
                 <Calendar className="h-6 w-6" />
                 <span className="text-lg">Book Now</span>
               </motion.button>
             </motion.div>
+          </motion.div>
+
+          {/* Reviews Section */}
+          <motion.div
+            initial={{ opacity: 0, y: 30 }}
+            animate={{ opacity: 1, y: 0 }}
+            transition={{ duration: 0.6, delay: 0.3 }}
+            className="bg-white/80 backdrop-blur-sm shadow-2xl rounded-2xl p-8 mb-8 border border-white/20"
+          >
+            <h2 className="text-3xl font-bold bg-gradient-to-r from-gray-900 to-gray-700 bg-clip-text text-transparent mb-6 flex items-center">
+              Reviews
+              {averageRating !== null && (
+                <span className="ml-4 flex items-center text-yellow-500 text-2xl font-bold">
+                  <Star className="h-6 w-6 mr-1" />
+                  {averageRating.toFixed(1)}
+                </span>
+              )}
+            </h2>
+            {/* Add/Edit Review Form */}
+            {userId && (
+              <form
+                onSubmit={handleReviewSubmit}
+                className="mb-8 bg-gray-50 p-6 rounded-xl border border-black-400"
+              >
+                <div className="flex items-center mb-4">
+                  <span className="mr-4 text-black text-lg font-medium">
+                    Your Rating:
+                  </span>
+                  <div className="flex">
+                    {[1, 2, 3, 4, 5].map((star) => {
+                      const isActive = star <= ratingInput;
+                      return (
+                        <button
+                          type="button"
+                          key={star}
+                          onClick={() => setRatingInput(star)}
+                          onMouseEnter={() => setHoveredStar(star)}
+                          onMouseLeave={() => setHoveredStar(0)}
+                          className="focus:outline-none"
+                        >
+                          <Star
+                            className={`h-7 w-7 transition-colors duration-150 ${
+                              star <= (hoveredStar || ratingInput)
+                                ? "text-yellow-400 fill-yellow-400"
+                                : "text-gray-300 fill-gray-300"
+                            }`}
+                          />
+                        </button>
+                      );
+                    })}
+                  </div>
+                </div>
+                <textarea
+                  className="w-full text-black p-3 rounded-lg border border-black-400 mb-4"
+                  rows={3}
+                  placeholder="Add a comment (optional)"
+                  value={commentInput}
+                  onChange={(e) => setCommentInput(e.target.value)}
+                  maxLength={500}
+                />
+                <div className="flex gap-4 items-center">
+                  <button
+                    type="submit"
+                    disabled={reviewLoading || ratingInput === 0}
+                    className="bg-blue-600 hover:bg-blue-700 text-white font-bold py-2 px-6 rounded-xl shadow-md transition-all duration-200 disabled:opacity-50"
+                  >
+                    {userReview ? "Update Review" : "Add Review"}
+                  </button>
+                  {userReview && (
+                    <button
+                      type="button"
+                      onClick={handleDeleteReview}
+                      disabled={reviewLoading}
+                      className="bg-red-500 hover:bg-red-600 text-white font-bold py-2 px-6 rounded-xl shadow-md transition-all duration-200 disabled:opacity-50"
+                    >
+                      Delete
+                    </button>
+                  )}
+                  {reviewLoading && (
+                    <span className="ml-2 text-gray-500">Saving...</span>
+                  )}
+                  {reviewError && (
+                    <span className="ml-2 text-red-500">{reviewError}</span>
+                  )}
+                </div>
+              </form>
+            )}
+            {/* Reviews List */}
+            {reviewLoading && !userReview && <div>Loading reviews...</div>}
+            {!reviewLoading && reviews.length === 0 && (
+              <div className="text-gray-500">No reviews yet.</div>
+            )}
+            <div className="space-y-6">
+              {reviews.map((review) => (
+                <div
+                  key={review.id}
+                  className="flex items-start gap-4 bg-white rounded-xl p-5 border border-gray-100 shadow-sm"
+                >
+                  <img
+                    src={review.user?.profileImageUrl || "/default-avatar.png"}
+                    alt={review.user?.firstName || "User"}
+                    className="w-12 h-12 rounded-full object-cover border border-gray-200"
+                    loading="lazy"
+                  />
+                  <div className="flex-1">
+                    <div className="flex items-center gap-2 mb-1">
+                      <span className="font-bold text-gray-900">
+                        {review.user?.firstName} {review.user?.lastName}
+                      </span>
+                      <span className="flex items-center text-yellow-500 ml-2">
+                        {[...Array(review.rating)].map((_, i) => (
+                          <Star
+                            key={i}
+                            className="h-4 w-4 fill-yellow-400 text-yellow-400"
+                          />
+                        ))}
+                      </span>
+                    </div>
+                    {review.comment && (
+                      <div className="text-gray-700 mb-1">{review.comment}</div>
+                    )}
+                    <div className="text-xs text-gray-400">
+                      {new Date(review.createdAt).toLocaleString()}
+                    </div>
+                  </div>
+                </div>
+              ))}
+            </div>
           </motion.div>
 
           {/* Recommendations */}
@@ -750,7 +1051,7 @@ const DetailsPage: React.FC<DetailsPageProps> = ({
                     animate={{ opacity: 1, y: 0 }}
                     transition={{ delay: 0.6 + index * 0.1 }}
                     whileHover={{ y: -8, scale: 1.02 }}
-                    className="bg-white border border-gray-200 rounded-2xl shadow-lg hover:shadow-2xl transition-all duration-300 cursor-pointer overflow-hidden group"
+                    className="bg-white border border-gray-200 rounded-2xl shadow-lg hover:shadow-2xl transition-all duration-300 cursor-pointer overflow-hidden group flex flex-col"
                     onClick={() =>
                       router.push(`/services/${serviceType}/${rec.id}`)
                     }
@@ -765,14 +1066,14 @@ const DetailsPage: React.FC<DetailsPageProps> = ({
                         <div className="absolute inset-0 bg-gradient-to-t from-black/50 via-transparent to-transparent opacity-0 group-hover:opacity-100 transition-opacity duration-300" />
                       </div>
                     )}
-                    <div className="p-6">
+                    <div className="p-6 flex-1 flex flex-col">
                       <h3 className="font-bold text-gray-900 mb-2 truncate text-lg">
                         {rec.name}
                       </h3>
                       <p className="text-sm text-gray-600 mb-4 line-clamp-2 leading-relaxed">
                         {rec.description}
                       </p>
-                      <div className="flex items-center justify-between">
+                      <div className="mt-auto flex items-center justify-between pt-4 border-t border-gray-100">
                         <div className="flex items-center bg-yellow-50 px-2 py-1 rounded-full">
                           <Star className="h-4 w-4 text-yellow-400 fill-current" />
                           <span className="ml-1 text-sm font-bold text-gray-800">

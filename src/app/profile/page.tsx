@@ -22,10 +22,13 @@ import {
   Image as ImageIcon,
   Globe,
 } from "lucide-react";
+import { ToastContainer, toast } from "react-toastify";
+import "react-toastify/dist/ReactToastify.css";
 
 // Import react-select and country-list
 import Select from "react-select";
 import countries from "country-list"; // Import the default export
+
 import Loader from "../components/Loader";
 
 interface ExtendedUser {
@@ -72,6 +75,7 @@ export default function ProfilePage() {
   const router = useRouter();
   const [logoutLoading, setLogoutLoading] = useState(false);
   const [saving, setSaving] = useState(false);
+  const [showSuccess, setShowSuccess] = useState(false);
 
   const [userId, setUserId] = useState<string | null>(null);
   const [firstName, setFirstName] = useState("");
@@ -85,22 +89,101 @@ export default function ProfilePage() {
   const [phone, setPhone] = useState("");
   const [occupation, setOccupation] = useState("");
   const [email, setEmail] = useState("");
-  const [profilePicture, setProfilePicture] = useState("");
   const [memberSince, setMemberSince] = useState("");
+  const [profilePicture, setProfilePicture] = useState("");
+  const [uploadingImage, setUploadingImage] = useState(false);
 
   // Generate country options once using useMemo for performance
   const countryOptions = useMemo(() => {
-    return (
-      countries
-        .getData()
-        .filter((country) => country.code !== "IL") // Exclude by code
-        // Or, to exclude by name: .filter(country => country.name !== 'Israel')
-        .map((country: { code: string; name: string }) => ({
-          value: country.code,
-          label: country.name,
-        }))
-    );
+    return countries
+      .getData()
+      .filter((country) => country.code !== "IL") // Exclude by code
+      .map((country: { code: string; name: string }) => ({
+        value: country.code,
+        label: country.name,
+      }));
   }, []);
+
+  // Refactored: fetchUserData as a standalone function
+  const fetchUserData = async (userObj: any, usedId: string | null) => {
+    let backendUser: any = null;
+    if (usedId) {
+      try {
+        const res = await fetch(`http://localhost:8080/api/users/${usedId}`);
+        if (res.ok) {
+          backendUser = await res.json();
+        } else if (res.status === 404) {
+          console.log("User not found by ID, might be a new user.");
+        } else {
+          console.error("Failed to fetch user by ID:", res.status);
+        }
+      } catch (e) {
+        console.error("Error fetching user by ID:", e);
+      }
+    }
+    if (backendUser) {
+      setUserId(backendUser.id);
+      setFirstName(
+        backendUser.firstName ||
+          (typeof userObj.given_name === "string"
+            ? userObj.given_name.split(" ")[0]
+            : "")
+      );
+      setLastName(
+        backendUser.lastName ||
+          userObj.family_name ||
+          (userObj.name || "").split(" ").slice(1).join(" ")
+      );
+      setRoleState(backendUser.role || "USER");
+      setBio(backendUser.bio || "");
+      setBirthdate(
+        backendUser.birthDate
+          ? new Date(backendUser.birthDate).toISOString().split("T")[0]
+          : ""
+      );
+      setCity(backendUser.city || "");
+      setCountry(backendUser.country || "");
+      setPhone(backendUser.phoneNumber || "");
+      setOccupation(backendUser.occupation || "");
+      setEmail(backendUser.email || userObj.email || "");
+      setProfilePicture(
+        backendUser.profilImg &&
+          backendUser.profilImg !== "assets/images/default_user.png"
+          ? backendUser.profilImg
+          : userObj.picture || backendUser.pictureUrl || ""
+      );
+      setMemberSince(backendUser.createdAt || userObj.created_at || "");
+    } else {
+      const nameParts = (userObj.name || "").split(" ");
+      setFirstName(
+        typeof userObj.given_name === "string"
+          ? userObj.given_name
+          : typeof nameParts[0] === "string"
+          ? nameParts[0]
+          : ""
+      );
+      setLastName(
+        typeof userObj.family_name === "string"
+          ? userObj.family_name
+          : nameParts.slice(1).join(" ")
+      );
+      setRoleState((userObj as ExtendedUser).role || "USER");
+      setEmail(typeof userObj.email === "string" ? userObj.email : "");
+      setProfilePicture(
+        typeof userObj.picture === "string" ? userObj.picture : ""
+      );
+      setMemberSince(
+        typeof userObj.created_at === "string" ? userObj.created_at : ""
+      );
+      setBio("");
+      setBirthdate("");
+      setCity("");
+      setCountry("");
+      setPhone("");
+      setOccupation("");
+    }
+    setEmailVerified(userObj.email_verified ?? false);
+  };
 
   useEffect(() => {
     if (!isLoading && !user) {
@@ -113,114 +196,75 @@ export default function ProfilePage() {
           .split("; ")
           .find((row) => row.startsWith("userId="))
           ?.split("=")[1] || null;
-      setUserId(userId);
-      const fetchUserData = async () => {
-        let backendUser: any = null;
-        if (usedId) {
-          try {
-            const res = await fetch(
-              `http://localhost:8080/api/users/${usedId}`
-            );
-            if (res.ok) {
-              backendUser = await res.json();
-            } else if (res.status === 404) {
-              console.log("User not found by ID, might be a new user.");
-            } else {
-              console.error("Failed to fetch user by ID:", res.status);
-            }
-          } catch (e) {
-            console.error("Error fetching user by ID:", e);
-          }
-        }
-
-        // getting user by auth0_id
-        // const auth0Sub = user.sub;
-        // if (auth0Sub) {
-        //   try {
-        //     const res = await fetch(`http://localhost:8080/api/users/auth0/${auth0Sub}`);
-        //     if (res.ok) {
-        //       backendUser = await res.json();
-        //     } else if (res.status === 404) {
-        //       console.log("User not found by auth0_id, might be a new user.");
-        //     } else {
-        //       console.error("Failed to fetch user by auth0_id:", res.status);
-        //     }
-        //   } catch (e) {
-        //     console.error("Error fetching user by auth0_id:", e);
-        //   }
-        // }
-
-        if (backendUser) {
-          setUserId(backendUser.id);
-          setFirstName(
-            backendUser.firstName ||
-              (typeof user.given_name === "string"
-                ? user.given_name.split(" ")[0]
-                : "")
-          );
-          setLastName(
-            backendUser.lastName ||
-              user.family_name ||
-              (user.name || "").split(" ").slice(1).join(" ")
-          );
-          setRoleState(backendUser.role || "USER");
-          setBio(backendUser.bio || "");
-          setBirthdate(
-            backendUser.birthDate
-              ? new Date(backendUser.birthDate).toISOString().split("T")[0]
-              : ""
-          );
-          setCity(backendUser.city || "");
-          setCountry(backendUser.country || "");
-          setPhone(backendUser.phoneNumber || "");
-          setOccupation(backendUser.occupation || "");
-          setEmail(backendUser.email || user.email || "");
-          setProfilePicture(user.picture || backendUser.pictureUrl || "");
-          setMemberSince(backendUser.createdAt || user.created_at || "");
-        } else {
-          const nameParts = (user.name || "").split(" ");
-          setFirstName(
-            typeof user.given_name === "string"
-              ? user.given_name
-              : typeof nameParts[0] === "string"
-              ? nameParts[0]
-              : ""
-          );
-          setLastName(
-            typeof user.family_name === "string"
-              ? user.family_name
-              : nameParts.slice(1).join(" ")
-          );
-          setRoleState((user as ExtendedUser).role || "USER");
-          setEmail(typeof user.email === "string" ? user.email : "");
-          setProfilePicture(
-            typeof user.picture === "string" ? user.picture : ""
-          );
-          setMemberSince(
-            typeof user.created_at === "string" ? user.created_at : ""
-          );
-          setBio("");
-          setBirthdate("");
-          setCity("");
-          setCountry("");
-          setPhone("");
-          setOccupation("");
-        }
-        setEmailVerified(user.email_verified ?? false);
-      };
-      fetchUserData();
+      setUserId(usedId);
+      fetchUserData(user, usedId);
     }
-  }, [user, isLoading, router, userId]);
+  }, [user, isLoading, router]);
 
   const handleLogout = () => {
     setLogoutLoading(true);
     window.location.href = "/api/auth/logout";
   };
 
+  // Replace with your actual ImgBB API key
+  const IMGBB_API_KEY = "8c92f0aa791a5e9d6864ec1f327948be";
+
+  // Image upload handler
+  const handleImageUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
+    if (!e.target.files?.[0]) return;
+    setUploadingImage(true);
+    try {
+      const formData = new FormData();
+      formData.append("image", e.target.files[0]);
+      const response = await fetch(
+        `https://api.imgbb.com/1/upload?key=${IMGBB_API_KEY}`,
+        { method: "POST", body: formData }
+      );
+      const data = await response.json();
+      if (!data.success) throw new Error("Image upload failed");
+      const directImageUrl = data.data.url;
+      setProfilePicture(directImageUrl);
+      // Immediately save the new image to backend
+      if (userId || user?.sub) {
+        const payload = {
+          profilImg: directImageUrl,
+        };
+        const targetUrl = userId
+          ? `http://localhost:8080/api/users/${userId}`
+          : `http://localhost:8080/api/users`;
+        const method = userId ? "PATCH" : "POST";
+        const res = await fetch(targetUrl, {
+          method: method,
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify(
+            userId
+              ? payload
+              : { ...payload, email: user?.email, auth0_id: user?.sub }
+          ),
+        });
+        if (!res.ok) {
+          const errorData = await res.json();
+          throw new Error(errorData.message || `Error: ${res.status}`);
+        }
+        const result = await res.json();
+        if (!userId && result.id) {
+          setUserId(result.id);
+        }
+        // Re-fetch backend user data to update all state (including image)
+        const newUserId = userId || result.id;
+        await fetchUserData(user, newUserId);
+      }
+    } catch (err) {
+      // Optionally show error to user
+      console.error("Failed to upload image", err);
+    } finally {
+      setUploadingImage(false);
+    }
+  };
+
   const handleSave = async () => {
     if (!userId && !user?.sub) {
       console.error("User identifier not found, cannot save profile.");
-      // Add user feedback here, e.g., a toast notification
       return;
     }
     setSaving(true);
@@ -234,6 +278,7 @@ export default function ProfilePage() {
         country,
         phoneNumber: phone,
         occupation,
+        profilImg: profilePicture, // <-- send image URL
         ...(!userId && user?.sub && { email: user.email, auth0_id: user.sub }),
       };
 
@@ -257,14 +302,36 @@ export default function ProfilePage() {
       if (!userId && result.id) {
         setUserId(result.id);
       }
+      // Immediately re-fetch backend user data to update all state (including image)
+      const newUserId = userId || result.id;
+      await fetchUserData(user, newUserId);
       console.log(
         `✅ Profile ${method === "POST" ? "created" : "updated"}:`,
         result
       );
-      // Add user feedback here (e.g., toast notification "Profile Saved!")
+      toast.success("Profile saved successfully!", {
+        position: "bottom-right",
+        autoClose: 3000,
+        hideProgressBar: false,
+        closeOnClick: true,
+        pauseOnHover: true,
+        draggable: true,
+        progress: undefined,
+        theme: "colored",
+      });
     } catch (err) {
       const errorMsg = err instanceof Error ? err.message : String(err);
       console.error("❌ Failed to save profile:", errorMsg);
+        toast.error(`Failed to save profile: ${errorMsg}`, {
+            position: "bottom-right",
+            autoClose: 5000,
+            hideProgressBar: false,
+            closeOnClick: true,
+            pauseOnHover: true,
+            draggable: true,
+            progress: undefined,
+            theme: "colored",
+        });
       // Add user feedback here (e.g., toast notification with errorMsg)
     } finally {
       setSaving(false);
@@ -298,6 +365,7 @@ export default function ProfilePage() {
   return (
     <div>
       <Navbar />
+      <ToastContainer />
       <div className="min-h-screen bg-slate-50 pt-26 pb-12 px-4 sm:px-6 lg:px-8">
         <header className="max-w-6xl mx-auto mb-10">
           <h1 className="text-3xl sm:text-4xl font-bold text-slate-800 flex items-center gap-2">
@@ -310,22 +378,61 @@ export default function ProfilePage() {
             Manage your profile, and personal information.
           </p>
         </header>
-
         <div className="max-w-6xl mx-auto md:grid md:grid-cols-3 md:gap-8 lg:gap-12">
           {/* Left Column: Profile Overview */}
           <aside className="md:col-span-1 mb-8 md:mb-0">
             <div className="p-4 sm:p-6 bg-white shadow-sm rounded-lg border border-slate-200">
               <div className="flex flex-col items-center text-center">
-                <div className="relative mb-4">
-                  <img
-                    src={profilePicture || "/default-avatar.png"}
-                    alt="Profile"
-                    className="w-32 h-32 rounded-full object-cover ring-4 ring-slate-200"
-                    onError={(e) => {
-                      e.currentTarget.onerror = null;
-                      e.currentTarget.src = "/default-avatar.png";
-                    }}
-                    referrerPolicy="no-referrer"
+                <div className="relative mb-4 group">
+                  <label
+                    htmlFor="profileImageUpload"
+                    className="block cursor-pointer"
+                  >
+                    {/* Image with hover effects */}
+                    <div className="relative">
+                      <img
+                        src={profilePicture || "/default-avatar.png"}
+                        alt="Profile"
+                        className="w-32 h-32 rounded-full object-cover ring-4 ring-slate-200 transition-all duration-300 group-hover:ring-blue-300"
+                        onError={(e) => {
+                          e.currentTarget.onerror = null;
+                          e.currentTarget.src = "/default-avatar.png";
+                        }}
+                        referrerPolicy="no-referrer"
+                      />
+
+                      {/* Dark overlay with camera icon - shows on hover */}
+                      <div className="absolute inset-0 flex items-center justify-center rounded-full opacity-0 group-hover:opacity-100 transition-opacity duration-300 bg-black bg-opacity-30">
+                        <svg
+                          className="w-8 h-8 text-white"
+                          fill="none"
+                          stroke="currentColor"
+                          viewBox="0 0 24 24"
+                        >
+                          <path
+                            strokeLinecap="round"
+                            strokeLinejoin="round"
+                            strokeWidth={2}
+                            d="M3 9a2 2 0 012-2h.93a2 2 0 001.664-.89l.812-1.22A2 2 0 0110.07 4h3.86a2 2 0 011.664.89l.812 1.22A2 2 0 0018.07 7H19a2 2 0 012 2v9a2 2 0 01-2 2H5a2 2 0 01-2-2V9z"
+                          />
+                          <path
+                            strokeLinecap="round"
+                            strokeLinejoin="round"
+                            strokeWidth={2}
+                            d="M15 13a3 3 0 11-6 0 3 3 0 016 0z"
+                          />
+                        </svg>
+                      </div>
+                    </div>
+                  </label>
+
+                  {/* Hidden file input */}
+                  <input
+                    type="file"
+                    id="profileImageUpload"
+                    accept="image/*"
+                    onChange={handleImageUpload}
+                    className="hidden"
                   />
                 </div>
                 <h2 className="text-xl font-semibold text-slate-800">{`${firstName} ${lastName}`}</h2>
@@ -376,7 +483,6 @@ export default function ProfilePage() {
               </button>
             </div>
           </aside>
-
           {/* Right Column: Form */}
           <main className="md:col-span-2">
             <form
@@ -667,3 +773,15 @@ export default function ProfilePage() {
     </div>
   );
 }
+
+/* Add this to your global CSS or Tailwind config:
+@keyframes fade-in-out {
+  0% { opacity: 0; transform: translateY(-16px) scale(0.95); }
+  10% { opacity: 1; transform: translateY(0) scale(1); }
+  90% { opacity: 1; transform: translateY(0) scale(1); }
+  100% { opacity: 0; transform: translateY(-16px) scale(0.95); }
+}
+.animate-fade-in-out {
+  animation: fade-in-out 3s both;
+}
+*/

@@ -112,6 +112,24 @@ export interface ServiceData {
   activities: Service[];
 }
 
+// --- Review Types ---
+export interface UserProfile {
+  id: string;
+  firstName: string;
+  lastName: string;
+  profileImageUrl?: string;
+}
+
+export interface Review {
+  id: string;
+  userId: string;
+  user: UserProfile;
+  rating: number;
+  comment?: string;
+  createdAt: string;
+  updatedAt: string;
+}
+
 // Getting userId from cookies
 const userId = (() => {
   if (typeof document === 'undefined') return null; // No cookies in server-side rendering
@@ -338,9 +356,81 @@ export const removeServiceFromFavorites = async (
   }
 };
 
+// --- Review API Functions ---
+export const fetchReviews = async (
+  type: keyof ServiceData,
+  serviceId: string
+): Promise<Review[]> => {
+  const res = await fetch(`${BASE_URL}/services/${type}/${serviceId}/reviews`, {
+    method: 'GET',
+    headers: { 'Content-Type': 'application/json' },
+  });
+  if (!res.ok) throw new Error('Failed to fetch reviews');
+  return res.json();
+};
+
+export const fetchAverageRating = async (
+  type: keyof ServiceData,
+  serviceId: string
+): Promise<number> => {
+  const res = await fetch(`${BASE_URL}/services/${type}/${serviceId}/reviews/average`, {
+    method: 'GET',
+    headers: { 'Content-Type': 'application/json' },
+  });
+  if (!res.ok) throw new Error('Failed to fetch average rating');
+  const data = await res.json();
+  return typeof data === 'number' ? data : data.averageRating;
+};
+
+export const addReview = async (
+  type: keyof ServiceData,
+  serviceId: string,
+  review: Omit<Review, 'id' | 'user' | 'createdAt' | 'updatedAt'> & { createdAt: string; updatedAt: string }
+): Promise<Review> => {
+  const res = await fetch(`${BASE_URL}/services/${type}/${serviceId}/reviews`, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify(review),
+  });
+  if (!res.ok) throw new Error('Failed to add review');
+  return res.json();
+};
+
+export const updateReview = async (
+  type: keyof ServiceData,
+  serviceId: string,
+  reviewId: string,
+  review: Partial<Omit<Review, 'id' | 'user' | 'createdAt' | 'updatedAt'>> & { updatedAt: string }
+): Promise<Review> => {
+  const res = await fetch(`${BASE_URL}/services/${type}/${serviceId}/reviews/${reviewId}`, {
+    method: 'PUT',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify(review),
+  });
+  if (!res.ok) throw new Error('Failed to update review');
+  return res.json();
+};
+
+export const deleteReview = async (
+  type: keyof ServiceData,
+  serviceId: string,
+  reviewId: string
+): Promise<void> => {
+  const res = await fetch(`${BASE_URL}/services/${type}/${serviceId}/reviews/${reviewId}`, {
+    method: 'DELETE',
+    headers: { 'Content-Type': 'application/json' },
+  });
+  if (!res.ok) throw new Error('Failed to delete review');
+};
+
 export default {
   fetchAllServices,
   fetchServiceById,
   addServiceToFavorites,
-  removeServiceFromFavorites
+  removeServiceFromFavorites,
+  fetchReviews,
+  fetchAverageRating,
+  addReview,
+  updateReview,
+  deleteReview
 };

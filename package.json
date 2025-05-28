@@ -28,6 +28,7 @@
     "react-phone-number-input": "^3.4.12",
     "react-select": "^5.10.1",
     "react-slick": "^0.30.3",
+    "react-toastify": "^11.0.5",
     "slick-carousel": "^1.8.1",
     "world-countries": "^5.1.0"
   },
