@@ -47,7 +47,7 @@ export default function AdminUsersPage() {
   const [error, setError] = useState<string | null>(null);
   const [editingUser, setEditingUser] = useState<User | null>(null);
   const [creating, setCreating] = useState(false);
-  const [form, setForm] = useState<Partial<User>>({});
+  const [form, setForm] = useState<Partial<User> & { showPassword?: boolean }>({ showPassword: false });
   const [uploadingImage, setUploadingImage] = useState(false);
   const router = useRouter();
 
@@ -124,7 +124,7 @@ export default function AdminUsersPage() {
     setLoading(true);
     setError(null);
     try {
-      const res = await fetch("http://localhost:8080/api/users", {
+      const res = await fetch("http://localhost:8080/api/auth/register", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify(form),
@@ -161,12 +161,19 @@ export default function AdminUsersPage() {
     setLoading(true);
     setError(null);
     try {
+      // Prepare payload: only include password if provided, and encode it
+      const payload = { ...form };
+      if (payload.password) {
+        payload.password = btoa(payload.password);
+      } else {
+        delete payload.password;
+      }
       const res = await fetch(
         `http://localhost:8080/api/users/${editingUser.id}`,
         {
           method: "PATCH",
           headers: { "Content-Type": "application/json" },
-          body: JSON.stringify(form),
+          body: JSON.stringify(payload),
         }
       );
       if (!res.ok) throw new Error("Failed to update user");
@@ -350,7 +357,7 @@ export default function AdminUsersPage() {
                       backgroundColor: "#f3f4f6",
                       minHeight: "40px",
                       boxShadow: "none",
-                      color: "black", 
+                      color: "black",
                     }),
                     singleValue: (provided) => ({
                       ...provided,
@@ -423,12 +430,18 @@ export default function AdminUsersPage() {
                 <label className="block text-black mb-1">
                   Language Preference
                 </label>
-                <input
+                <select
                   name="languagePreference"
                   value={form.languagePreference || ""}
                   onChange={handleInput}
-                  className="w-full border px-3 py-2 rounded text-gray-900 placeholder-gray-700 bg-gray-100 focus:bg-white"
-                />
+                  className="w-full border px-3 py-2 rounded text-gray-900 bg-gray-100 focus:bg-white"
+                  required
+                >
+                  <option value="">Select a language...</option>
+                  <option value="ARABIC">ARABIC</option>
+                  <option value="FRENCH">FRENCH</option>
+                  <option value="ENGLISH">ENGLISH</option>
+                </select>
               </div>
               <div>
                 <label className="block text-black mb-1">Active</label>
@@ -451,6 +464,32 @@ export default function AdminUsersPage() {
                   <option value="false">No</option>
                 </select>
               </div>
+                <div>
+                <label className="block text-black mb-1">Password</label>
+                <div className="relative">
+                  <input
+                  name="password"
+                  type={form.showPassword ? "text" : "password"}
+                  value={form.password || ""}
+                  onChange={handleInput}
+                  className="w-full border px-3 py-2 rounded text-gray-900 placeholder-gray-700 bg-gray-100 focus:bg-white pr-10"
+                  required
+                  />
+                  <button
+                  type="button"
+                  tabIndex={-1}
+                  className="absolute right-2 top-1/2 transform -translate-y-1/2 text-gray-600"
+                  onClick={() =>
+                    setForm((prev) => ({
+                    ...prev,
+                    showPassword: !prev.showPassword,
+                    }))
+                  }
+                  >
+                  {form.showPassword ? "Hide" : "Show"}
+                  </button>
+                </div>
+                </div>
               {/* Subtype-specific fields */}
               {isRegularUser(form.role || "") && (
                 <div>
