@@ -5,7 +5,16 @@
 import React, { useEffect, useState } from "react";
 import Navbar from "@/app/components/Navbar";
 import AdminSideBar from "@/app/components/AdminSideBar";
-import { Star, Trash2, AlertTriangle, Loader2, X, ChevronLeft } from "lucide-react";
+import {
+  Star,
+  Trash2,
+  AlertTriangle,
+  Loader2,
+  X,
+  ChevronLeft,
+} from "lucide-react";
+import Loader from "@/app/components/Loader";
+import { useAdminGuard } from "@/app/hooks/useAdminGuard";
 
 // Define the Location interface based on your error message
 interface ServiceLocation {
@@ -46,46 +55,52 @@ interface ServiceProvider {
 }
 
 const AdminServicesPage: React.FC = () => {
+  const { loading, isAdmin } = useAdminGuard();
   const [services, setServices] = useState<Service[]>([]);
-  const [serviceProviders, setServiceProviders] = useState<Record<string, ServiceProvider>>({});
+  const [serviceProviders, setServiceProviders] = useState<
+    Record<string, ServiceProvider>
+  >({});
   const [selectedService, setSelectedService] = useState<Service | null>(null);
-  const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [deleting, setDeleting] = useState<string | null>(null);
-  const [showConfirmModal, setShowConfirmModal] = useState<null | Service>(null);
+  const [showConfirmModal, setShowConfirmModal] = useState<null | Service>(
+    null
+  );
 
   useEffect(() => {
-    async function fetchServices() {
-      setLoading(true);
-      setError(null);
-      try {
-        const res = await fetch("http://localhost:8080/api/services");
-        if (!res.ok) {
-          throw new Error(`Failed to fetch services (status: ${res.status})`);
-        }
-        const data = await res.json();
-        setServices(data);
+    if (!loading && isAdmin) {
+      async function fetchServices() {
+        setError(null);
+        try {
+          const res = await fetch("http://localhost:8080/api/services");
+          if (!res.ok) {
+            throw new Error(`Failed to fetch services (status: ${res.status})`);
+          }
+          const data = await res.json();
+          setServices(data);
 
-        const serviceProvidersRes = await fetch("http://localhost:8080/api/users"); // Assuming this endpoint exists for users who are also service providers
-        if (!serviceProvidersRes.ok) {
-          throw new Error(`Failed to fetch service providers (status: ${serviceProvidersRes.status})`);
+          const serviceProvidersRes = await fetch(
+            "http://localhost:8080/api/users"
+          );
+          if (!serviceProvidersRes.ok) {
+            throw new Error(
+              `Failed to fetch service providers (status: ${serviceProvidersRes.status})`
+            );
+          }
+          const serviceProvidersData = await serviceProvidersRes.json();
+          const serviceProvidersMap: Record<string, ServiceProvider> = {};
+          serviceProvidersData.forEach((sp: any) => {
+            serviceProvidersMap[sp.id] = sp;
+          });
+          setServiceProviders(serviceProvidersMap);
+        } catch (err: any) {
+          setError(err.message || "Failed to load services");
+          console.error("Fetch error:", err);
         }
-        const serviceProvidersData = await serviceProvidersRes.json();
-        const serviceProvidersMap: Record<string, ServiceProvider> = {};
-        serviceProvidersData.forEach((sp: any) => {
-          serviceProvidersMap[sp.id] = sp;
-        });
-        setServiceProviders(serviceProvidersMap);
-
-      } catch (err: any) {
-        setError(err.message || "Failed to load services");
-        console.error("Fetch error:", err);
-      } finally {
-        setLoading(false);
       }
+      fetchServices();
     }
-    fetchServices();
-  }, []);
+  }, [loading, isAdmin]);
 
   const handleDeleteInitiate = (service: Service) => {
     setSelectedService(service);
@@ -102,8 +117,13 @@ const AdminServicesPage: React.FC = () => {
       const url = `http://localhost:8080/api/services/${serviceToDelete.id}`;
       const res = await fetch(url, { method: "DELETE" });
       if (!res.ok) {
-        const errorData = await res.json().catch(() => ({ message: "Failed to delete service" }));
-        throw new Error(errorData.message || `Failed to delete service (status: ${res.status})`);
+        const errorData = await res
+          .json()
+          .catch(() => ({ message: "Failed to delete service" }));
+        throw new Error(
+          errorData.message ||
+            `Failed to delete service (status: ${res.status})`
+        );
       }
       setServices((prev) => prev.filter((s) => s.id !== serviceToDelete.id));
       if (selectedService?.id === serviceToDelete.id) {
@@ -130,6 +150,12 @@ const AdminServicesPage: React.FC = () => {
       ))}
     </div>
   );
+
+  if (loading) {
+    return <Loader text="Loading services..." />;
+  }
+
+  if (!isAdmin) return null;
 
   return (
     <>
@@ -163,15 +189,16 @@ const AdminServicesPage: React.FC = () => {
           )}
 
           {loading ? (
-            <div className="flex justify-center items-center h-64">
-              <Loader2 className="w-12 h-12 text-sky-600 animate-spin" />
-              <p className="ml-3 text-slate-600 text-lg">Loading services...</p>
-            </div>
+            <Loader text="Loading services..." />
           ) : selectedService && !showConfirmModal ? (
             <div className="bg-white rounded-xl shadow-xl p-6 md:p-8 max-w-2xl mx-auto transition-all duration-300">
               <div className="flex items-start gap-4 mb-6">
                 <img
-                  src={selectedService.images && selectedService.images.length > 0 ? selectedService.images[0] : "/default-service.png"}
+                  src={
+                    selectedService.images && selectedService.images.length > 0
+                      ? selectedService.images[0]
+                      : "/default-service.png"
+                  }
                   alt={selectedService.name}
                   className="w-20 h-20 rounded-full object-cover border-2 border-slate-200"
                 />
@@ -202,30 +229,40 @@ const AdminServicesPage: React.FC = () => {
               <div className="text-slate-400 text-xs mb-8">
                 Price:
                 {selectedService.offerType === "cars"
-                    ? selectedService.pricePerDay?.toFixed(2) || 'N/A'
-                    : selectedService.offerType === "accommodations"
-                    ? selectedService.rooms && selectedService.rooms.length > 0
-                        ? Math.min(
-                                ...selectedService.rooms
-                                    .map(room => room.pricePerNight ?? Infinity)
-                                    .filter(price => price !== undefined && price !== null && price !== Infinity)
-                            ).toFixed(2)
-                        : 'N/A'
-                    : selectedService.offerType === "activities"
-                    ? selectedService.price?.toFixed(2) || 'N/A'
-                    : selectedService.offerType === "restaurants"
-                    ? selectedService.menu && selectedService.menu.length > 0
-                        ? Math.min(
-                                ...selectedService.menu
-                                    .map((item: any) => item.price ?? Infinity)
-                                    .filter((price: number) => price !== undefined && price !== null && price !== Infinity)
-                            ).toFixed(2)
-                        : 'N/A'
-                    : selectedService.price?.toFixed(2) || 'N/A'}
+                  ? selectedService.pricePerDay?.toFixed(2) || "N/A"
+                  : selectedService.offerType === "accommodations"
+                  ? selectedService.rooms && selectedService.rooms.length > 0
+                    ? Math.min(
+                        ...selectedService.rooms
+                          .map((room) => room.pricePerNight ?? Infinity)
+                          .filter(
+                            (price) =>
+                              price !== undefined &&
+                              price !== null &&
+                              price !== Infinity
+                          )
+                      ).toFixed(2)
+                    : "N/A"
+                  : selectedService.offerType === "activities"
+                  ? selectedService.price?.toFixed(2) || "N/A"
+                  : selectedService.offerType === "restaurants"
+                  ? selectedService.menu && selectedService.menu.length > 0
+                    ? Math.min(
+                        ...selectedService.menu
+                          .map((item: any) => item.price ?? Infinity)
+                          .filter(
+                            (price: number) =>
+                              price !== undefined &&
+                              price !== null &&
+                              price !== Infinity
+                          )
+                      ).toFixed(2)
+                    : "N/A"
+                  : selectedService.price?.toFixed(2) || "N/A"}
                 {" MAD | "}Location:{" "}
                 {selectedService.location
                   ? `${selectedService.location.address}, ${selectedService.location.city}`
-                  : 'N/A'}
+                  : "N/A"}
               </div>
               <div className="flex items-center gap-4">
                 <button
@@ -293,7 +330,11 @@ const AdminServicesPage: React.FC = () => {
                       >
                         <td className="py-3 px-5 whitespace-nowrap">
                           <img
-                            src={service.images && service.images.length > 0 ? service.images[0] : "/default-service.png"}
+                            src={
+                              service.images && service.images.length > 0
+                                ? service.images[0]
+                                : "/default-service.png"
+                            }
                             alt={service.name}
                             className="w-12 h-12 rounded-lg object-cover border border-slate-200"
                           />
@@ -343,7 +384,9 @@ const AdminServicesPage: React.FC = () => {
             >
               <div
                 className={`bg-white p-6 md:p-8 rounded-xl shadow-2xl text-center max-w-md w-11/12 transform transition-all duration-300 ease-in-out ${
-                  showConfirmModal ? "scale-100 opacity-100" : "scale-95 opacity-0"
+                  showConfirmModal
+                    ? "scale-100 opacity-100"
+                    : "scale-95 opacity-0"
                 }`}
               >
                 <div className="mx-auto flex items-center justify-center h-16 w-16 rounded-full bg-red-100 mb-4">
@@ -354,9 +397,7 @@ const AdminServicesPage: React.FC = () => {
                 </h2>
                 <p className="mb-6 text-slate-600">
                   Are you sure you want to delete the service: &quot;
-                  <span className="font-semibold">
-                    {showConfirmModal.name}
-                  </span>
+                  <span className="font-semibold">{showConfirmModal.name}</span>
                   &quot;? This action cannot be undone.
                 </p>
                 <div className="flex justify-center gap-4">

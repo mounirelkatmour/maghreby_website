@@ -1,3 +1,4 @@
+/* eslint-disable @next/next/no-html-link-for-pages */
 /* eslint-disable @typescript-eslint/no-explicit-any */
 /* eslint-disable @next/next/no-img-element */
 import { useState, useEffect, useRef } from "react";
@@ -97,6 +98,16 @@ const Navbar = () => {
 
   const handleLogout = () => {
     setLogoutLoading(true);
+    // Clear all cookies (especially userId)
+    if (typeof document !== "undefined") {
+      const cookies = document.cookie.split(";");
+      for (const cookie of cookies) {
+        const eqPos = cookie.indexOf("=");
+        const name = eqPos > -1 ? cookie.substr(0, eqPos) : cookie;
+        document.cookie =
+          name + "=;expires=Thu, 01 Jan 1970 00:00:00 GMT;path=/";
+      }
+    }
     window.location.href = "/api/auth/logout";
   };
 

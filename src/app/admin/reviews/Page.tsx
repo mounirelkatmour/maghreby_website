@@ -12,6 +12,8 @@ import {
   X,
   ChevronLeft,
 } from "lucide-react";
+import Loader from "@/app/components/Loader";
+import { useAdminGuard } from "@/app/hooks/useAdminGuard";
 
 interface Review {
   id: string;
@@ -37,70 +39,71 @@ interface Service {
 }
 
 const AdminReviewsPage: React.FC = () => {
+  const { loading, isAdmin } = useAdminGuard();
   const [reviews, setReviews] = useState<Review[]>([]);
   const [users, setUsers] = useState<Record<string, User>>({});
   const [services, setServices] = useState<Record<string, Service>>({});
   const [selectedReview, setSelectedReview] = useState<Review | null>(null);
-  const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [deleting, setDeleting] = useState<string | null>(null);
   const [showConfirmModal, setShowConfirmModal] = useState<null | Review>(null); // Store the whole review object
 
   useEffect(() => {
-    async function fetchReviews() {
-      setLoading(true);
-      setError(null);
-      try {
-        const res = await fetch("http://localhost:8080/api/reviews");
-        if (!res.ok)
-          throw new Error(`Failed to fetch reviews (status: ${res.status})`);
-        const data = await res.json();
+    if (!loading && isAdmin) {
+      async function fetchReviews() {
+        setError(null);
+        try {
+          const res = await fetch("http://localhost:8080/api/reviews");
+          if (!res.ok)
+            throw new Error(`Failed to fetch reviews (status: ${res.status})`);
+          const data = await res.json();
 
-        const usersRes = await fetch("http://localhost:8080/api/users");
-        if (!usersRes.ok)
-          throw new Error(`Failed to fetch users (status: ${usersRes.status})`);
-        const usersData = await usersRes.json();
-        const usersMap: Record<string, User> = {};
-        usersData.forEach((u: any) => {
-          usersMap[u.id] = u;
-        });
-        setUsers(usersMap);
-
-        const servicesRes = await fetch("http://localhost:8080/api/services");
-        if (!servicesRes.ok)
-          throw new Error(
-            `Failed to fetch services (status: ${servicesRes.status})`
-          );
-        const servicesData = await servicesRes.json();
-        const servicesMap: Record<string, Service & { offerType?: string }> =
-          {};
-        Object.values(servicesData)
-          .flat()
-          .forEach((s: any) => {
-            if (s && s.id) {
-              servicesMap[s.id] = {
-                id: s.id,
-                name: s.name || "Unnamed Service",
-                offerType: s.offerType,
-              };
-            }
+          const usersRes = await fetch("http://localhost:8080/api/users");
+          if (!usersRes.ok)
+            throw new Error(
+              `Failed to fetch users (status: ${usersRes.status})`
+            );
+          const usersData = await usersRes.json();
+          const usersMap: Record<string, User> = {};
+          usersData.forEach((u: any) => {
+            usersMap[u.id] = u;
           });
-        setServices(servicesMap);
+          setUsers(usersMap);
 
-        const reviewsWithType = data.map((review: any) => {
-          const service = servicesMap[review.offerId];
-          return { ...review, type: service?.offerType || "Unknown" };
-        });
-        setReviews(reviewsWithType);
-      } catch (err: any) {
-        setError(err.message || "Failed to load reviews");
-        console.error("Fetch error:", err);
-      } finally {
-        setLoading(false);
+          const servicesRes = await fetch("http://localhost:8080/api/services");
+          if (!servicesRes.ok)
+            throw new Error(
+              `Failed to fetch services (status: ${servicesRes.status})`
+            );
+          const servicesData = await servicesRes.json();
+          const servicesMap: Record<string, Service & { offerType?: string }> =
+            {};
+          Object.values(servicesData)
+            .flat()
+            .forEach((s: any) => {
+              if (s && s.id) {
+                servicesMap[s.id] = {
+                  id: s.id,
+                  name: s.name || "Unnamed Service",
+                  offerType: s.offerType,
+                };
+              }
+            });
+          setServices(servicesMap);
+
+          const reviewsWithType = data.map((review: any) => {
+            const service = servicesMap[review.offerId];
+            return { ...review, type: service?.offerType || "Unknown" };
+          });
+          setReviews(reviewsWithType);
+        } catch (err: any) {
+          setError(err.message || "Failed to load reviews");
+          console.error("Fetch error:", err);
+        }
       }
+      fetchReviews();
     }
-    fetchReviews();
-  }, []);
+  }, [loading, isAdmin]);
 
   const handleDeleteInitiate = (review: Review) => {
     setSelectedReview(review); // Keep track for context if needed, or pass review directly
@@ -150,6 +153,12 @@ const AdminReviewsPage: React.FC = () => {
     </div>
   );
 
+  if (loading) {
+    return <Loader text="Loading reviews..." />;
+  }
+
+  if (!isAdmin) return null;
+
   return (
     <>
       <Navbar />
@@ -182,10 +191,7 @@ const AdminReviewsPage: React.FC = () => {
           )}
 
           {loading ? (
-            <div className="flex justify-center items-center h-64">
-              <Loader2 className="w-12 h-12 text-sky-600 animate-spin" />
-              <p className="ml-3 text-slate-600 text-lg">Loading reviews...</p>
-            </div>
+            <Loader text="Loading reviews..." />
           ) : selectedReview && !showConfirmModal ? ( // Show detail view only if modal is not active
             <div className="bg-white rounded-xl shadow-xl p-6 md:p-8 max-w-2xl mx-auto transition-all duration-300">
               <div className="flex items-start gap-4 mb-6">
@@ -312,7 +318,8 @@ const AdminReviewsPage: React.FC = () => {
                         </td>
                         <td className="py-3 px-5 whitespace-nowrap text-sm">
                           <div className="font-medium text-sky-700">
-                            {services[review.offerId]?.name || "Deleted Service"}
+                            {services[review.offerId]?.name ||
+                              "Deleted Service"}
                           </div>
                           <div className="text-xs text-slate-500">
                             {(() => {

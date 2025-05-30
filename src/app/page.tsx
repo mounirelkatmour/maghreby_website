@@ -62,6 +62,7 @@ interface CarouselImage {
 
 interface AutoCarouselProps {
   images: CarouselImage[];
+  userId?: string | null;
 }
 
 interface ServiceSectionProps {
@@ -206,67 +207,67 @@ const ServiceCard: React.FC<ServiceCardProps> = ({
       style={{ cursor: "pointer" }}
     >
       <div className="h-48 overflow-hidden relative">
-      <img
-        src={displayImage}
-        alt={displayName}
-        className="w-full h-full object-cover transform group-hover:scale-105 transition-transform duration-300"
-      />
-      <button
-        onClick={handleFavoriteClick}
-        disabled={loading}
-        className={"absolute top-3 right-3 z-20 bg-white/90 backdrop-blur-sm rounded-full p-2 shadow-lg hover:bg-white transition-all duration-300"}
-        aria-label={isFavorite ? "Remove from favorites" : "Add to favorites"}
-      >
-        <Heart
-        size={20}
-        className={`h-5 w-5 transition-colors duration-300 ${
-          isFavorite
-          ? "text-red-500 fill-red-500"
-          : "text-gray-600 hover:text-red-500"
-        }`}
+        <img
+          src={displayImage}
+          alt={displayName}
+          className="w-full h-full object-cover transform group-hover:scale-105 transition-transform duration-300"
         />
-      </button>
-      {service.averageRating !== undefined && (
-        <div className="absolute bottom-3 left-3 flex items-center bg-yellow-50 px-2 py-1 rounded-full">
-        <Star size={14} className="text-yellow-400 fill-current" />
-        <span className="ml-1 text-sm font-medium text-gray-700">
-          {service.averageRating?.toFixed(1)}
-        </span>
-        </div>
-      )}
+        <button
+          onClick={handleFavoriteClick}
+          disabled={loading}
+          className={
+            "absolute top-3 right-3 z-20 bg-white/90 backdrop-blur-sm rounded-full p-2 shadow-lg hover:bg-white transition-all duration-300"
+          }
+          aria-label={isFavorite ? "Remove from favorites" : "Add to favorites"}
+        >
+          <Heart
+            size={20}
+            className={`h-5 w-5 transition-colors duration-300 ${
+              isFavorite
+                ? "text-red-500 fill-red-500"
+                : "text-gray-600 hover:text-red-500"
+            }`}
+          />
+        </button>
+        {service.averageRating !== undefined && (
+          <div className="absolute bottom-3 left-3 flex items-center bg-yellow-50 px-2 py-1 rounded-full">
+            <Star size={14} className="text-yellow-400 fill-current" />
+            <span className="ml-1 text-sm font-medium text-gray-700">
+              {service.averageRating?.toFixed(1)}
+            </span>
+          </div>
+        )}
       </div>
       <div className="p-4 flex-1 flex flex-col">
-      <div className="flex justify-between items-start">
-        <h3 className="text-lg font-semibold text-gray-900 group-hover:text-blue-600 transition-colors">
-        {displayName}
-        </h3>
-      </div>
-      <div className="flex items-center gap-1 text-gray-500 mt-1 mb-2">
-        <MapPin size={14} />
-        <span className="text-sm">
-        {service.location &&
-        (service.location.address || service.location.city)
-          ? `${
-            service.location.address
-            ? service.location.address + ", "
-            : ""
-          }${service.location.city ?? ""}`
-            .trim()
-            .replace(/,$/, "")
-          : "N/A"}
-        </span>
-      </div>
-      <p className="mt-1 text-sm text-gray-600 line-clamp-2 flex-grow">
-        {service.description}
-      </p>
-      <div className="mt-4 flex items-center justify-between">
-        <div className="text-lg font-bold text-blue-600">
-        {displayPrice}
+        <div className="flex justify-between items-start">
+          <h3 className="text-lg font-semibold text-gray-900 group-hover:text-blue-600 transition-colors">
+            {displayName}
+          </h3>
         </div>
-        <span className="inline-flex items-center px-3 py-1 rounded-full text-xs font-medium bg-blue-100 text-blue-800 capitalize">
-        {category}
-        </span>
-      </div>
+        <div className="flex items-center gap-1 text-gray-500 mt-1 mb-2">
+          <MapPin size={14} />
+          <span className="text-sm">
+            {service.location &&
+            (service.location.address || service.location.city)
+              ? `${
+                  service.location.address
+                    ? service.location.address + ", "
+                    : ""
+                }${service.location.city ?? ""}`
+                  .trim()
+                  .replace(/,$/, "")
+              : "N/A"}
+          </span>
+        </div>
+        <p className="mt-1 text-sm text-gray-600 line-clamp-2 flex-grow">
+          {service.description}
+        </p>
+        <div className="mt-4 flex items-center justify-between">
+          <div className="text-lg font-bold text-blue-600">{displayPrice}</div>
+          <span className="inline-flex items-center px-3 py-1 rounded-full text-xs font-medium bg-blue-100 text-blue-800 capitalize">
+            {category}
+          </span>
+        </div>
       </div>
     </div>
   );
@@ -280,383 +281,13 @@ interface User {
   [key: string]: string | number | boolean | undefined | null;
 }
 
-const Navbar = () => {
-  const [isMenuOpen, setIsMenuOpen] = useState(false);
-  const [user, setUser] = useState<User | null>(null);
-  const [isLoading, setIsLoading] = useState(true);
-
-  // Check for user authentication status
-  useEffect(() => {
-    const checkUser = async () => {
-      try {
-        const response = await fetch("/api/auth/me");
-        if (response.ok) {
-          const text = await response.text();
-          if (text) {
-            const userData = JSON.parse(text);
-            setUser(userData);
-          } else {
-            setUser(null);
-          }
-        } else {
-          setUser(null);
-        }
-      } catch (error) {
-        console.error("Failed to fetch user:", error);
-        setUser(null);
-      } finally {
-        setIsLoading(false);
-      }
-    };
-
-    checkUser();
-  }, []);
-
-  return (
-    <nav className="fixed top-0 left-0 right-0 z-50 bg-white/95 backdrop-blur-xl border-b border-blue-100/50 shadow-lg">
-      <div className="max-w-7xl mx-auto px-6 py-4 flex justify-between items-center">
-        {/* Travel-friendly Logo */}
-        <div className="flex items-center space-x-3">
-          <div className="w-10 h-10 rounded-full flex items-center justify-center shadow-md bg-white overflow-hidden">
-            <img
-              src="https://iili.io/3Z5wIb1.png"
-              alt="Maghreby Logo"
-              className="w-10 h-10 object-cover"
-            />
-          </div>
-          <div className="text-2xl font-medium text-gray-800 tracking-tight">
-            Maghreby
-            <div className="text-xs text-blue-600 font-normal -mt-1">
-              Discover Morocco
-            </div>
-          </div>
-        </div>
-
-        {/* Friendly Nav Links */}
-        <div className="hidden md:flex items-center space-x-8 text-gray-700">
-          <a
-            href="#stays"
-            className="relative group text-sm font-medium hover:text-blue-600 transition-all duration-300 py-2"
-          >
-            <span className="flex items-center space-x-1">
-              <svg
-                className="w-4 h-4"
-                fill="none"
-                stroke="currentColor"
-                strokeWidth={2}
-                viewBox="0 0 24 24"
-              >
-                <path
-                  strokeLinecap="round"
-                  strokeLinejoin="round"
-                  d="M3 12l2-2m0 0l7-7 7 7M5 10v10a1 1 0 001 1h3m10-11l2 2m-2-2v10a1 1 0 01-1 1h-3m-6 0a1 1 0 001-1v-4a1 1 0 011-1h2a1 1 0 011 1v4a1 1 0 001 1m-6 0h6"
-                />
-              </svg>
-              <span>Places to Stay</span>
-            </span>
-            <span className="absolute -bottom-1 left-0 w-0 h-0.5 bg-gradient-to-r from-blue-500 to-teal-500 group-hover:w-full transition-all duration-300 rounded-full"></span>
-          </a>
-          <a
-            href="#cars"
-            className="relative group text-sm font-medium hover:text-blue-600 transition-all duration-300 py-2"
-          >
-            <span className="flex items-center space-x-1">
-              <svg
-                className="w-4 h-4"
-                fill="none"
-                stroke="currentColor"
-                strokeWidth={2}
-                viewBox="0 0 24 24"
-              >
-                <path
-                  strokeLinecap="round"
-                  strokeLinejoin="round"
-                  d="M19 14l-7 7m0 0l-7-7m7 7V3"
-                />
-              </svg>
-              <span>Car Rentals</span>
-            </span>
-            <span className="absolute -bottom-1 left-0 w-0 h-0.5 bg-gradient-to-r from-blue-500 to-teal-500 group-hover:w-full transition-all duration-300 rounded-full"></span>
-          </a>
-          <a
-            href="#restaurants"
-            className="relative group text-sm font-medium hover:text-blue-600 transition-all duration-300 py-2"
-          >
-            <span className="flex items-center space-x-1">
-              <svg
-                className="w-4 h-4"
-                fill="none"
-                stroke="currentColor"
-                strokeWidth={2}
-                viewBox="0 0 24 24"
-              >
-                <path
-                  strokeLinecap="round"
-                  strokeLinejoin="round"
-                  d="M12 6.253v13m0-13C10.832 5.477 9.246 5 7.5 5S4.168 5.477 3 6.253v13C4.168 18.477 5.754 18 7.5 18s3.332.477 4.5 1.253m0-13C13.168 5.477 14.754 5 16.5 5c1.747 0 3.332.477 4.5 1.253v13C19.832 18.477 18.247 18 16.5 18c-1.746 0-3.332.477-4.5 1.253"
-                />
-              </svg>
-              <span>Local Cuisine</span>
-            </span>
-            <span className="absolute -bottom-1 left-0 w-0 h-0.5 bg-gradient-to-r from-blue-500 to-teal-500 group-hover:w-full transition-all duration-300 rounded-full"></span>
-          </a>
-          <a
-            href="#activities"
-            className="relative group text-sm font-medium hover:text-blue-600 transition-all duration-300 py-2"
-          >
-            <span className="flex items-center space-x-1">
-              <svg
-                className="w-4 h-4"
-                fill="none"
-                stroke="currentColor"
-                strokeWidth={2}
-                viewBox="0 0 24 24"
-              >
-                <path
-                  strokeLinecap="round"
-                  strokeLinejoin="round"
-                  d="M14.828 14.828a4 4 0 01-5.656 0M9 10h1.586a1 1 0 01.707.293l2.414 2.414a1 1 0 00.707.293H15M9 10v4a1 1 0 001 1h4M9 10V9a1 1 0 011-1h4a1 1 0 011 1v1"
-                />
-              </svg>
-              <span>Experiences</span>
-            </span>
-            <span className="absolute -bottom-1 left-0 w-0 h-0.5 bg-gradient-to-r from-blue-500 to-teal-500 group-hover:w-full transition-all duration-300 rounded-full"></span>
-          </a>
-        </div>
-
-        {/* Friendly CTA Buttons */}
-        <div className="hidden md:flex items-center space-x-3">
-          {isLoading ? (
-            <div className="w-24 h-10 animate-pulse bg-gray-200 rounded-lg"></div>
-          ) : user ? (
-            <a
-              href="/profile"
-              className="flex items-center space-x-2 text-gray-600 text-sm font-medium hover:text-blue-600 transition-colors duration-300 px-4 py-2 rounded-lg hover:bg-blue-50"
-            >
-              {user.picture ? (
-                <img
-                  src={user.picture}
-                  alt={user.name || "Profile"}
-                  className="w-6 h-6 rounded-full"
-                  onError={(e) => {
-                    e.currentTarget.onerror = null;
-                    e.currentTarget.src = "/default-avatar.png";
-                  }}
-                />
-              ) : (
-                <div className="w-6 h-6 rounded-full bg-blue-500 flex items-center justify-center text-white text-xs font-bold">
-                  {user.name ? user.name.charAt(0).toUpperCase() : "U"}
-                </div>
-              )}
-              <span>{user.name || "My Account"}</span>
-            </a>
-          ) : (
-            <>
-              <a
-                href="/api/auth/login"
-                className="text-gray-600 text-sm font-medium hover:text-blue-600 transition-colors duration-300 px-4 py-2 rounded-lg hover:bg-blue-50"
-              >
-                Log In
-              </a>
-              <a
-                href="/api/auth/login?screen_hint=signup"
-                className="group relative bg-gradient-to-r from-blue-600 via-blue-500 to-teal-500 text-white px-6 py-2.5 rounded-lg font-medium text-sm transition-all duration-300 hover:shadow-lg hover:shadow-blue-500/25 transform hover:scale-105"
-              >
-                <span className="relative z-10 flex items-center space-x-2">
-                  <span>Start Your Journey</span>
-                  <svg
-                    className="w-4 h-4 group-hover:translate-x-1 transition-transform duration-300"
-                    fill="none"
-                    stroke="currentColor"
-                    strokeWidth={2}
-                    viewBox="0 0 24 24"
-                  >
-                    <path
-                      strokeLinecap="round"
-                      strokeLinejoin="round"
-                      d="M17 8l4 4m0 0l-4 4m4-4H3"
-                    />
-                  </svg>
-                </span>
-              </a>
-            </>
-          )}
-        </div>
-
-        {/* Mobile Menu Button */}
-        <div className="md:hidden">
-          <button
-            onClick={() => setIsMenuOpen(!isMenuOpen)}
-            className="text-gray-600 hover:text-blue-600 transition-colors duration-300 p-2 rounded-lg hover:bg-blue-50"
-          >
-            <svg
-              className="w-6 h-6"
-              fill="none"
-              stroke="currentColor"
-              strokeWidth={2}
-              viewBox="0 0 24 24"
-            >
-              <path
-                strokeLinecap="round"
-                strokeLinejoin="round"
-                d={
-                  isMenuOpen
-                    ? "M6 18L18 6M6 6l12 12"
-                    : "M4 6h16M4 12h16M4 18h16"
-                }
-              />
-            </svg>
-          </button>
-        </div>
-      </div>
-
-      {/* Mobile Menu */}
-      {isMenuOpen && (
-        <div className="md:hidden bg-white/98 backdrop-blur-xl border-t border-blue-100/50 shadow-lg">
-          <div className="px-6 py-6 space-y-4">
-            <a
-              href="#stays"
-              className="flex items-center space-x-3 text-gray-700 hover:text-blue-600 transition-colors duration-300 py-3 px-3 rounded-lg hover:bg-blue-50"
-              onClick={() => setIsMenuOpen(false)}
-            >
-              <svg
-                className="w-5 h-5"
-                fill="none"
-                stroke="currentColor"
-                strokeWidth={2}
-                viewBox="0 0 24 24"
-              >
-                <path
-                  strokeLinecap="round"
-                  strokeLinejoin="round"
-                  d="M3 12l2-2m0 0l7-7 7 7M5 10v10a1 1 0 001 1h3m10-11l2 2m-2-2v10a1 1 0 01-1 1h-3m-6 0a1 1 0 001-1v-4a1 1 0 011-1h2a1 1 0 011 1v4a1 1 0 001 1m-6 0h6"
-                />
-              </svg>
-              <span className="font-medium">Places to Stay</span>
-            </a>
-            <a
-              href="#cars"
-              className="flex items-center space-x-3 text-gray-700 hover:text-blue-600 transition-colors duration-300 py-3 px-3 rounded-lg hover:bg-blue-50"
-              onClick={() => setIsMenuOpen(false)}
-            >
-              <svg
-                className="w-5 h-5"
-                fill="none"
-                stroke="currentColor"
-                strokeWidth={2}
-                viewBox="0 0 24 24"
-              >
-                <path
-                  strokeLinecap="round"
-                  strokeLinejoin="round"
-                  d="M19 14l-7 7m0 0l-7-7m7 7V3"
-                />
-              </svg>
-              <span className="font-medium">Car Rentals</span>
-            </a>
-            <a
-              href="#restaurants"
-              className="flex items-center space-x-3 text-gray-700 hover:text-blue-600 transition-colors duration-300 py-3 px-3 rounded-lg hover:bg-blue-50"
-              onClick={() => setIsMenuOpen(false)}
-            >
-              <svg
-                className="w-5 h-5"
-                fill="none"
-                stroke="currentColor"
-                strokeWidth={2}
-                viewBox="0 0 24 24"
-              >
-                <path
-                  strokeLinecap="round"
-                  strokeLinejoin="round"
-                  d="M12 6.253v13m0-13C10.832 5.477 9.246 5 7.5 5S4.168 5.477 3 6.253v13C4.168 18.477 5.754 18 7.5 18s3.332.477 4.5 1.253m0-13C13.168 5.477 14.754 5 16.5 5c1.747 0 3.332.477 4.5 1.253v13C19.832 18.477 18.247 18 16.5 18c-1.746 0-3.332.477-4.5 1.253"
-                />
-              </svg>
-              <span className="font-medium">Local Cuisine</span>
-            </a>
-            <a
-              href="#activities"
-              className="flex items-center space-x-3 text-gray-700 hover:text-blue-600 transition-colors duration-300 py-3 px-3 rounded-lg hover:bg-blue-50"
-              onClick={() => setIsMenuOpen(false)}
-            >
-              <svg
-                className="w-5 h-5"
-                fill="none"
-                stroke="currentColor"
-                strokeWidth={2}
-                viewBox="0 0 24 24"
-              >
-                <path
-                  strokeLinecap="round"
-                  strokeLinejoin="round"
-                  d="M14.828 14.828a4 4 0 01-5.656 0M9 10h1.586a1 1 0 01.707.293l2.414 2.414a1 1 0 00.707.293H15M9 10v4a1 1 0 001 1h4M9 10V9a1 1 0 011-1h4a1 1 0 011 1v1"
-                />
-              </svg>
-              <span className="font-medium">Experiences</span>
-            </a>
-            <div className="pt-4 space-y-3 border-t border-blue-100">
-              {isLoading ? (
-                <div className="h-10 animate-pulse bg-gray-200 rounded-lg mb-3"></div>
-              ) : user ? (
-                <>
-                  <a
-                    href="/profile"
-                    className="flex items-center space-x-2 text-gray-600 font-medium py-3 px-3 rounded-lg hover:bg-blue-50 hover:text-blue-600 transition-colors duration-300"
-                    onClick={() => setIsMenuOpen(false)}
-                  >
-                    {user.picture ? (
-                      <img
-                        src={user.picture}
-                        alt={user.name || "Profile"}
-                        className="w-6 h-6 rounded-full"
-                        onError={(e) => {
-                          e.currentTarget.onerror = null;
-                          e.currentTarget.src = "/default-avatar.png";
-                        }}
-                      />
-                    ) : (
-                      <div className="w-6 h-6 rounded-full bg-blue-500 flex items-center justify-center text-white text-xs font-bold">
-                        {user.name ? user.name.charAt(0).toUpperCase() : "U"}
-                      </div>
-                    )}
-                    <span>My Profile</span>
-                  </a>
-                  <a
-                    href="/api/auth/logout"
-                    className="block w-full text-left text-gray-600 font-medium py-3 px-3 rounded-lg hover:bg-red-50 hover:text-red-600 transition-colors duration-300"
-                    onClick={() => setIsMenuOpen(false)}
-                  >
-                    Sign Out
-                  </a>
-                </>
-              ) : (
-                <>
-                  <a
-                    href="/api/auth/login"
-                    className="block w-full text-left text-gray-600 font-medium py-3 px-3 rounded-lg hover:bg-blue-50 hover:text-blue-600 transition-colors duration-300"
-                    onClick={() => setIsMenuOpen(false)}
-                  >
-                    Sign In
-                  </a>
-                  <a
-                    href="/api/auth/login?screen_hint=signup"
-                    className="block w-full bg-gradient-to-r from-blue-600 via-blue-500 to-teal-500 text-white py-3 px-4 rounded-lg font-medium text-sm transition-all duration-300 hover:shadow-lg hover:shadow-blue-500/25"
-                    onClick={() => setIsMenuOpen(false)}
-                  >
-                    Start Your Journey
-                  </a>
-                </>
-              )}
-            </div>
-          </div>
-        </div>
-      )}
-    </nav>
-  );
-};
-
 // Auto-scrolling Carousel Component
-const AutoCarousel: React.FC<AutoCarouselProps> = ({ images }) => {
+interface AutoCarouselProps {
+  images: CarouselImage[];
+  userId?: string | null;
+}
+
+const AutoCarousel: React.FC<AutoCarouselProps> = ({ images, userId }) => {
   const [currentIndex, setCurrentIndex] = useState(0);
 
   useEffect(() => {
@@ -687,16 +318,54 @@ const AutoCarousel: React.FC<AutoCarouselProps> = ({ images }) => {
 
       {/* Content Overlay */}
       <div className="absolute inset-0 flex items-center justify-center text-center z-10">
-        <div className="max-w-4xl px-6">
-          <h1 className="text-6xl md:text-8xl font-light text-white mb-6 tracking-tight">
-            Maghreby
+        <div className="max-w-5xl px-6 py-12 rounded-3xl border border-white/10">
+          <h1 className="text-6xl md:text-8xl font-light text-white mb-8 tracking-tight drop-shadow-lg animate-fadeIn">
+            <span className="bg-gradient-to-r from-white to-white/80 bg-clip-text text-transparent">
+              Maghreby
+            </span>
           </h1>
-          <p className="text-xl md:text-2xl text-white/90 mb-8 font-light max-w-2xl mx-auto">
+          <p className="text-xl md:text-2xl text-white/90 mb-10 font-light max-w-3xl mx-auto leading-relaxed drop-shadow-md">
             Curated luxury travel experiences that redefine extraordinary
           </p>
-          <button className="bg-white text-gray-900 px-8 py-4 rounded-2xl font-semibold hover:bg-gray-100 transition-all duration-300 transform hover:scale-105">
-            Start Your Journey
-          </button>
+          <div className="flex flex-col sm:flex-row gap-6 justify-center">
+            <button
+              className="group bg-gradient-to-r from-white to-gray-100 text-gray-900 px-10 py-5 rounded-full font-medium hover:shadow-xl transition-all duration-300 transform hover:-translate-y-1 flex items-center justify-center gap-2"
+              onClick={(e) => {
+                e.preventDefault();
+                const staysSection = document.getElementById("stays");
+                if (staysSection) {
+                  staysSection.scrollIntoView({ behavior: "smooth" });
+                }
+              }}
+            >
+              <span>Start Your Journey</span>
+              <ArrowRight
+                size={18}
+                className="group-hover:translate-x-1 transition-transform"
+              />
+            </button>
+            {/* Debug logs for provider join button */}
+            {(() => {
+              if (typeof window !== "undefined") {
+                const cookieUserId = getUserIdFromCookie();
+                if (!cookieUserId) {
+                  return (
+                    <button
+                      className="group bg-transparent border-2 backdrop-blur-sm border-white/50 text-white px-10 py-5 rounded-full font-medium hover:bg-white/10 transition-all duration-300 flex items-center justify-center gap-2"
+                      onClick={() => (window.location.href = "/api/auth/service-provider-request")}
+                    >
+                      <span>Become a Service Provider</span>
+                      <ArrowRight
+                        size={18}
+                        className="group-hover:translate-x-1 transition-transform"
+                      />
+                    </button>
+                  );
+                }
+              }
+              return null;
+            })()}
+          </div>
         </div>
       </div>
 
@@ -962,7 +631,7 @@ export default function Maghreby() {
   return (
     <div className="min-h-screen bg-gray-50">
       {/* Hero Carousel */}
-      <AutoCarousel images={heroImages} />
+      <AutoCarousel images={heroImages} userId={userId} />
 
       {/* Search Interface */}
       <SearchInterface />

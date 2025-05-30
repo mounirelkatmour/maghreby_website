@@ -7,6 +7,8 @@ import Navbar from "@/app/components/Navbar";
 import AdminSideBar from "@/app/components/AdminSideBar";
 import Select from "react-select";
 import countries from "country-list";
+import { useAdminGuard } from "@/app/hooks/useAdminGuard";
+import Loader from "@/app/components/Loader";
 
 interface User {
   id: string;
@@ -42,12 +44,14 @@ interface ServiceProvider extends User {
 }
 
 export default function AdminUsersPage() {
+  const { loading, isAdmin } = useAdminGuard();
   const [users, setUsers] = useState<User[]>([]);
-  const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [editingUser, setEditingUser] = useState<User | null>(null);
   const [creating, setCreating] = useState(false);
-  const [form, setForm] = useState<Partial<User> & { showPassword?: boolean }>({ showPassword: false });
+  const [form, setForm] = useState<Partial<User> & { showPassword?: boolean }>({
+    showPassword: false,
+  });
   const [uploadingImage, setUploadingImage] = useState(false);
   const router = useRouter();
 
@@ -65,7 +69,7 @@ export default function AdminUsersPage() {
   // Fetch all users
   useEffect(() => {
     async function fetchUsers() {
-      setLoading(true);
+      if (!isAdmin) return;
       try {
         const res = await fetch("http://localhost:8080/api/users");
         if (!res.ok) throw new Error("Failed to fetch users");
@@ -73,12 +77,10 @@ export default function AdminUsersPage() {
         setUsers(data);
       } catch (err) {
         setError("Failed to load users");
-      } finally {
-        setLoading(false);
       }
     }
     fetchUsers();
-  }, []);
+  }, [isAdmin]);
 
   // Upload image to ImgBB
   const handleImageUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
@@ -121,7 +123,6 @@ export default function AdminUsersPage() {
   // Create user
   const handleCreate = async (e: React.FormEvent) => {
     e.preventDefault();
-    setLoading(true);
     setError(null);
     try {
       const res = await fetch("http://localhost:8080/api/auth/register", {
@@ -137,8 +138,6 @@ export default function AdminUsersPage() {
       setUsers(await usersRes.json());
     } catch (err) {
       setError("Failed to create user");
-    } finally {
-      setLoading(false);
     }
   };
 
@@ -158,7 +157,6 @@ export default function AdminUsersPage() {
   const handleUpdate = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!editingUser) return;
-    setLoading(true);
     setError(null);
     try {
       // Prepare payload: only include password if provided, and encode it
@@ -184,15 +182,12 @@ export default function AdminUsersPage() {
       setUsers(await usersRes.json());
     } catch (err) {
       setError("Failed to update user");
-    } finally {
-      setLoading(false);
     }
   };
 
   // Delete user
   const handleDelete = async (id: string) => {
     if (!confirm("Are you sure you want to delete this user?")) return;
-    setLoading(true);
     setError(null);
     try {
       const res = await fetch(`http://localhost:8080/api/users/${id}`, {
@@ -204,8 +199,6 @@ export default function AdminUsersPage() {
       setUsers(await usersRes.json());
     } catch (err) {
       setError("Failed to delete user");
-    } finally {
-      setLoading(false);
     }
   };
 
@@ -213,6 +206,11 @@ export default function AdminUsersPage() {
   const isRegularUser = (role: string) => role === "USER";
   const isServiceProvider = (role: string) => role === "SERVICE_PROVIDER";
   const isAdminUser = (role: string) => role === "ADMIN";
+
+  if (loading) {
+    return <Loader text="Loading users..." />;
+  }
+  if (!isAdmin) return null;
 
   return (
     <>
@@ -464,32 +462,32 @@ export default function AdminUsersPage() {
                   <option value="false">No</option>
                 </select>
               </div>
-                <div>
+              <div>
                 <label className="block text-black mb-1">Password</label>
                 <div className="relative">
                   <input
-                  name="password"
-                  type={form.showPassword ? "text" : "password"}
-                  value={form.password || ""}
-                  onChange={handleInput}
-                  className="w-full border px-3 py-2 rounded text-gray-900 placeholder-gray-700 bg-gray-100 focus:bg-white pr-10"
-                  required
+                    name="password"
+                    type={form.showPassword ? "text" : "password"}
+                    value={form.password || ""}
+                    onChange={handleInput}
+                    className="w-full border px-3 py-2 rounded text-gray-900 placeholder-gray-700 bg-gray-100 focus:bg-white pr-10"
+                    required
                   />
                   <button
-                  type="button"
-                  tabIndex={-1}
-                  className="absolute right-2 top-1/2 transform -translate-y-1/2 text-gray-600"
-                  onClick={() =>
-                    setForm((prev) => ({
-                    ...prev,
-                    showPassword: !prev.showPassword,
-                    }))
-                  }
+                    type="button"
+                    tabIndex={-1}
+                    className="absolute right-2 top-1/2 transform -translate-y-1/2 text-gray-600"
+                    onClick={() =>
+                      setForm((prev) => ({
+                        ...prev,
+                        showPassword: !prev.showPassword,
+                      }))
+                    }
                   >
-                  {form.showPassword ? "Hide" : "Show"}
+                    {form.showPassword ? "Hide" : "Show"}
                   </button>
                 </div>
-                </div>
+              </div>
               {/* Subtype-specific fields */}
               {isRegularUser(form.role || "") && (
                 <div>
@@ -560,7 +558,7 @@ export default function AdminUsersPage() {
                 <button
                   type="submit"
                   className="bg-blue-600 text-white px-4 py-2 rounded hover:bg-blue-700"
-                  disabled={loading || uploadingImage}
+                  disabled={uploadingImage}
                 >
                   {creating ? "Create" : "Update"}
                 </button>
@@ -625,7 +623,9 @@ export default function AdminUsersPage() {
                     <td className="py-2 px-4">{user.lastName}</td>
                     <td className="py-2 px-4">{user.email}</td>
                     <td className="py-2 px-4">{user.phoneNumber || "-"}</td>
-                    <td className="py-2 px-4">{user.role}</td>
+                    <td className="py-2 px-4">
+                      {user.role === "SERVICE_PROVIDER" ? "SP" : user.role}
+                    </td>
                     <td className="py-2 px-4">{user.country || "-"}</td>
                     <td className="py-2 px-4">{user.city || "-"}</td>
                     <td className="py-2 px-4">
