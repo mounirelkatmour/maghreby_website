@@ -140,10 +140,8 @@ const userId = (() => {
 // Generic function to fetch data from the backend
 async function fetchData<T>(endpoint: string): Promise<T> {
   const url = `${BASE_URL}${endpoint}`;
-  console.log(`Fetching data from: ${url}`);
   
   try {
-    console.log(`Making request to: ${url}`);
     const response = await fetch(url, {
       method: 'GET',
       mode: 'cors',
@@ -154,8 +152,6 @@ async function fetchData<T>(endpoint: string): Promise<T> {
         'Accept': 'application/json',
       },
     });
-    
-    console.log(`Response status: ${response.status} ${response.statusText}`);
     
     if (!response.ok) {
       let errorData;
@@ -256,7 +252,12 @@ export const fetchAllServices = async (userId?: string): Promise<ServiceData> =>
           return [];
         })
     ]);
-
+    console.log("These are services:", {
+      accommodations,
+      cars,
+      restaurants,
+      activities
+    });
     console.log('Successfully fetched services:', {
       accommodations: accommodations.length,
       cars: cars.length,

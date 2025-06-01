@@ -648,7 +648,7 @@ const DetailsPage: React.FC<DetailsPageProps> = ({
                 >
                   <MapPin className="h-5 w-5 mr-2 text-blue-600" />
                   <span className="text-lg">
-                    {service.location?.city}, {service.location?.country}
+                    {service.location?.address}
                   </span>
                 </motion.div>
               </div>

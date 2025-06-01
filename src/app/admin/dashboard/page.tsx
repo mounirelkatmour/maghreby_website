@@ -250,6 +250,7 @@ export default function AdminDashboardPage() {
           <section className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-6 mb-10">
             {statCards.map((stat) => {
               const IconComponent = stat.icon;
+              // Use only the icon, no color class for now to debug visibility
               return (
                 <div
                   key={stat.label}
@@ -261,12 +262,7 @@ export default function AdminDashboardPage() {
                       <div
                         className={`p-3 rounded-xl ${stat.color} bg-opacity-10`}
                       >
-                        <IconComponent
-                          className={`w-6 h-6 ${stat.color.replace(
-                            "bg-",
-                            "text-"
-                          )}`}
-                        />
+                        <IconComponent className="w-6 h-6 text-white" />
                       </div>
                       <Activity className="w-4 h-4 text-gray-400 group-hover:text-gray-600 transition-colors" />
                     </div>

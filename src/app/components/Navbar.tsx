@@ -125,17 +125,27 @@ const Navbar = () => {
     },
   ];
 
-  // Add Admin Dashboard menu item if backendUser.role === 'ADMIN'
+  // Add Admin Dashboard or SP Dashboard menu item based on backendUser.role
   const enhancedProfileMenuItems =
     backendUser && backendUser.role === "ADMIN"
       ? [
-          ...profileMenuItems.slice(0, 4), // Profile, Cart, Favorites, Settings
+          ...profileMenuItems.slice(0, 4),
           {
             icon: ShieldUser,
-            label: "Admin dashboard",
+            label: "Admin Dashboard",
             href: "/admin/dashboard",
           },
-          ...profileMenuItems.slice(4), // Logout
+          ...profileMenuItems.slice(4),
+        ]
+      : backendUser && backendUser.role === "SERVICE_PROVIDER"
+      ? [
+          ...profileMenuItems.slice(0, 4),
+          {
+            icon: ShieldUser,
+            label: "SP Dashboard",
+            href: "/service-provider/dashboard",
+          },
+          ...profileMenuItems.slice(4),
         ]
       : profileMenuItems;
 
