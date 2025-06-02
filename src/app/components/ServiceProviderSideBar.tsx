@@ -1,7 +1,6 @@
 import Link from 'next/link';
 import { usePathname } from "next/navigation";
 import {
-LayoutDashboard,
 Briefcase,
 CalendarCheck,
 } from 'lucide-react';
@@ -9,11 +8,6 @@ CalendarCheck,
 const ServiceProviderSideBar = () => {
     const pathname = usePathname();
 const menuItems = [
-    {
-        href: '/service-provider/dashboard',
-        label: 'Dashboard',
-        icon: <LayoutDashboard className="h-5 w-5" />,
-    },
     {
         href: '/service-provider/services',
         label: 'My Services',

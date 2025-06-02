@@ -113,7 +113,7 @@ const Navbar = () => {
 
   const profileMenuItems = [
     { icon: User, label: "Profile", href: "/profile" },
-    { icon: ShoppingCart, label: "Cart", href: "/cart" },
+    { icon: ShoppingCart, label: "Bookings", href: "/bookings" },
     { icon: Heart, label: "Favorites", href: "/favorites" },
     { icon: Settings, label: "Settings", href: "/settings" },
     {
@@ -143,7 +143,7 @@ const Navbar = () => {
           {
             icon: ShieldUser,
             label: "SP Dashboard",
-            href: "/service-provider/dashboard",
+            href: "/service-provider/services",
           },
           ...profileMenuItems.slice(4),
         ]

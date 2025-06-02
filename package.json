@@ -13,6 +13,7 @@
     "@auth0/nextjs-auth0": "^3.5.0",
     "@emotion/react": "^11.14.0",
     "@emotion/styled": "^11.14.0",
+    "@stripe/react-stripe-js": "^3.7.0",
     "@stripe/stripe-js": "^7.3.1",
     "axios": "^1.9.0",
     "country-list": "^2.3.0",
@@ -31,7 +32,7 @@
     "react-slick": "^0.30.3",
     "react-toastify": "^11.0.5",
     "slick-carousel": "^1.8.1",
-    "stripe": "^18.2.0",
+    "stripe": "^18.2.1",
     "world-countries": "^5.1.0"
   },
   "devDependencies": {
