@@ -47,6 +47,7 @@ import Navbar from "./Navbar";
 import { useRouter } from "next/navigation";
 import Loader from "./Loader";
 import StripeCheckout, { StripeCheckoutModal } from "./StripeCheckout";
+import { isDateRangeOverlap } from "../utils/dateUtils";
 
 // Type guards
 function isAccommodation(service: Service): service is Accommodation {
@@ -1215,6 +1216,65 @@ const DetailsPage: React.FC<DetailsPageProps> = ({
                               throw new Error(
                                 "Start date must be before end date."
                               );
+                            // Overlap check for cars and accommodations
+                            if (isAccommodation(service) || isCar(service)) {
+                              const bookingsRes = await fetch(
+                                `http://localhost:8080/api/bookings/service/${service.id}`
+                              );
+                              console.log("service.id : ",service.id);
+                              let existingBookings = await bookingsRes.json();
+                              if (!Array.isArray(existingBookings))
+                                existingBookings = [];
+                              const debugInfo: any[] = [];
+                              const overlap = existingBookings.some(
+                                (b: any) => {
+                                  const bStart = new Date(b.startDate);
+                                  const bEnd = new Date(b.endDate);
+                                  const overlapResult = isDateRangeOverlap(
+                                    start,
+                                    end,
+                                    bStart,
+                                    bEnd
+                                  );
+                                  debugInfo.push({
+                                    bookingId: b._id || b.id,
+                                    bStart: bStart.toISOString(),
+                                    bEnd: bEnd.toISOString(),
+                                    newStart: start.toISOString(),
+                                    newEnd: end.toISOString(),
+                                    overlapResult,
+                                    status: b.status,
+                                  });
+                                  return (
+                                    b.serviceId === service.id &&
+                                    overlapResult &&
+                                    b.status !== "CANCELLED"
+                                  );
+                                }
+                              );
+                              // Log debug info to browser console
+                              if (typeof window !== "undefined") {
+                                console.log(
+                                  "Booking Overlap Debug:",
+                                  debugInfo
+                                );
+                              }
+                              if (overlap) {
+                                setBookingLoading(false);
+                                toast.error(
+                                  "❌ This car or accommodation is already booked for the selected dates.",
+                                  {
+                                    position: "top-right",
+                                    autoClose: 5000,
+                                    hideProgressBar: false,
+                                    closeOnClick: true,
+                                    pauseOnHover: true,
+                                    draggable: true,
+                                  }
+                                );
+                                return;
+                              }
+                            }
                             const isCash = bookingForm.paymentMethod === "CASH";
                             const payload = {
                               serviceId: service.id,
@@ -1353,6 +1413,15 @@ const DetailsPage: React.FC<DetailsPageProps> = ({
                             </span>
                           </div>
                         </div>
+
+                        {(isAccommodation(service) || isCar(service)) && (
+                          <div className="flex items-center text-red-500 pb-6">
+                            <TriangleAlert className="mr-2" />
+                            <span>
+                              Please enter a valid date to get a valid amount.
+                            </span>
+                          </div>
+                        )}
 
                         <button
                           type="submit"

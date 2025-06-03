@@ -40,7 +40,7 @@ function StripeCheckout({
     try {
       const res = await fetch("/api/create-payment-intent", {
         method: "POST",
-        body: JSON.stringify({ amount, currency: "usd" }),
+        body: JSON.stringify({ amount: amount / 10, currency: "usd" }),
         headers: { "Content-Type": "application/json" },
       });
       const data = await res.json();

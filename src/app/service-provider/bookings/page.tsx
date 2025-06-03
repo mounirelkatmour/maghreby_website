@@ -1,3 +1,4 @@
+/* eslint-disable @typescript-eslint/no-unused-vars */
 /* eslint-disable @next/next/no-img-element */
 /* eslint-disable @typescript-eslint/no-explicit-any */
 "use client";
@@ -247,6 +248,51 @@ const ServiceProviderBookingsPage: React.FC = () => {
                             </p>
                           </div>
                         </div>
+                        {/* Confirm button for pending bookings - positioned at bottom right */}
+                        {booking.status.toLowerCase() === "pending" && (
+                          <div className="flex justify-end">
+                            <button
+                              className="px-6 py-3 bg-gradient-to-r from-green-500 to-green-600 text-white rounded-lg font-bold hover:from-green-600 hover:to-green-700 transform hover:scale-105 transition-all duration-200 shadow-lg hover:shadow-xl"
+                              onClick={async () => {
+                                try {
+                                  const res = await fetch(
+                                    `http://localhost:8080/api/bookings/${booking.id}`,
+                                    {
+                                      method: "PATCH",
+                                      headers: {
+                                        "Content-Type": "application/json",
+                                      },
+                                      body: JSON.stringify({
+                                        status: "CONFIRMED",
+                                        paymentStatus: "CONFIRMED",
+                                      }),
+                                    }
+                                  );
+                                  if (!res.ok)
+                                    throw new Error(
+                                      "Failed to confirm booking"
+                                    );
+                                  // Refresh bookings after update
+                                  setBookings((prev) =>
+                                    prev.map((b) =>
+                                      b.id === booking.id
+                                        ? {
+                                            ...b,
+                                            status: "CONFIRMED",
+                                            paymentStatus: "CONFIRMED",
+                                          }
+                                        : b
+                                    )
+                                  );
+                                } catch (err) {
+                                  alert("Failed to confirm booking");
+                                }
+                              }}
+                            >
+                              ✓ Confirm Booking
+                            </button>
+                          </div>
+                        )}
                       </div>
                     </div>
                   </div>
