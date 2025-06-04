@@ -30,6 +30,7 @@ type FilterState = {
   minPrice: number | "";
   maxPrice: number | "";
   searchQuery: string;
+  cityQuery: string; // <-- Added for city search
   sortBy: "name" | "price" | "rating";
   sortOrder: "asc" | "desc";
 };
@@ -60,6 +61,7 @@ export default function ServicesPage() {
     minPrice: "",
     maxPrice: "",
     searchQuery: "",
+    cityQuery: "", // <-- Added for city search
     sortBy: "name",
     sortOrder: "asc",
   });
@@ -113,6 +115,27 @@ export default function ServicesPage() {
     setFavoriteMap(map);
   }, [services]);
 
+  // Log unique cities available in the loaded services
+  useEffect(() => {
+    const citySet = new Set<string>();
+    services.forEach((service) => {
+      // Try both location.city and address.city for compatibility
+      let city = "";
+      if ("location" in service && service.location && service.location.city) {
+        city = service.location.city;
+      } else if (
+        "address" in service &&
+        service.location &&
+        service.location.city
+      ) {
+        city = service.location.city;
+      }
+      if (city) citySet.add(city);
+    });
+    // Log the unique cities
+    console.log("Available cities:", Array.from(citySet));
+  }, [services]);
+
   const filteredServices = services
     .filter((service) => {
       // Filter by search query
@@ -126,6 +149,29 @@ export default function ServicesPage() {
           .includes(filters.searchQuery.toLowerCase())
       ) {
         return false;
+      }
+
+      // Filter by city query
+      if (filters.cityQuery) {
+        let city = "";
+        if (
+          "location" in service &&
+          service.location &&
+          service.location.city
+        ) {
+          city = service.location.city.toLowerCase();
+        } else if (
+          "address" in service &&
+          service.address &&
+          (service.address as { city?: string }).city
+        ) {
+          city = (
+            (service.address as { city?: string }).city || ""
+          ).toLowerCase();
+        }
+        if (!city.includes(filters.cityQuery.toLowerCase())) {
+          return false;
+        }
       }
 
       // Filter by price range based on service type
@@ -224,6 +270,7 @@ export default function ServicesPage() {
       minPrice: "",
       maxPrice: "",
       searchQuery: "",
+      cityQuery: "", // <-- Reset city query
       sortBy: "name",
       sortOrder: "asc",
     });
@@ -315,6 +362,20 @@ export default function ServicesPage() {
                   value={filters.searchQuery}
                   onChange={handleFilterChange}
                   placeholder="Search by name or description..."
+                  className="w-full px-4 py-3 border border-gray-300 rounded-lg shadow-sm focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500 text-black placeholder-black bg-white"
+                />
+              </div>
+
+              <div>
+                <label className="block text-sm font-medium text-gray-700 mb-2">
+                  🏙️ City
+                </label>
+                <input
+                  type="text"
+                  name="cityQuery"
+                  value={filters.cityQuery}
+                  onChange={handleFilterChange}
+                  placeholder="Search by city..."
                   className="w-full px-4 py-3 border border-gray-300 rounded-lg shadow-sm focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500 text-black placeholder-black bg-white"
                 />
               </div>
