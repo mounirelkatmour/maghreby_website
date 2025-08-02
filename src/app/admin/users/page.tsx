@@ -71,7 +71,7 @@ export default function AdminUsersPage() {
   const router = useRouter();
 
   // Replace with your actual ImgBB API key
-  const IMGBB_API_KEY = "8c92f0aa791a5e9d6864ec1f327948be";
+  const IMGBB_API_KEY = "API_KEY";
 
   // Generate country options once using useMemo for performance
   const countryOptions = React.useMemo(() => {
